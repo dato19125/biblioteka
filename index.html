@@ -1,1351 +1,1272 @@
 <!DOCTYPE html>
-<html lang="ka">
+<html lang="ka" class="dark h-full">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title id="pageHeadTitle">ბიბლიოთეკა - Advanced Book Tracker with Sync</title>
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Font Awesome Icons -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <!-- Google Font: Noto Sans Georgian -->
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Georgian:wght@300;400;500;600;700;800&display=swap">
-  
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: ['"Noto Sans Georgian"', 'sans-serif'],
-          },
-          colors: {
-            library: {
-              50: '#f4f6f9',
-              100: '#e5e9f0',
-              800: '#1b2332',
-              900: '#0f141d',
-              accent: '#6366f1',
-              gold: '#f59e0b',
-              emerald: '#10b981'
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ფანტასტიკური ბიბლიოთეკა - Book Tracker</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0284c7',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            800: '#075985',
+                            900: '#0c4a6e',
+                            accent: '#6366f1'
+                        }
+                    }
+                }
             }
-          }
         }
-      }
-    }
-  </script>
+    </script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Noto Sans Georgian & Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Georgian:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-  <style>
-    body {
-      font-family: 'Noto Sans Georgian', sans-serif;
-      background-color: #0f141d;
-      color: #e2e8f0;
-      min-height: 100vh;
-    }
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
 
-    /* Custom Scrollbar */
-    ::-webkit-scrollbar {
-      width: 8px;
-    }
-    ::-webkit-scrollbar-track {
-      background: #0f141d;
-    }
-    ::-webkit-scrollbar-thumb {
-      background: #334155;
-      border-radius: 4px;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-      background: #475569;
-    }
-
-    /* Interactive 3D Card Hover Effect */
-    .book-card-container {
-      perspective: 1000px;
-    }
-
-    .book-card {
-      transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.4s ease, border-color 0.3s ease;
-      transform-style: preserve-3d;
-      will-change: transform;
-    }
-
-    .book-card:hover {
-      transform: translateY(-8px) rotateX(4deg) rotateY(-4deg) scale(1.02);
-      box-shadow: 0 20px 30px -10px rgba(0, 0, 0, 0.6), 0 0 20px 2px rgba(99, 102, 241, 0.25);
-    }
-
-    /* Hover shine effect overlay */
-    .book-card::after {
-      content: '';
-      position: absolute;
-      top: 0; left: 0; right: 0; bottom: 0;
-      border-radius: inherit;
-      background: linear-gradient(135deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0) 60%);
-      pointer-events: none;
-      opacity: 0;
-      transition: opacity 0.3s ease;
-    }
-
-    .book-card:hover::after {
-      opacity: 1;
-    }
-
-    /* Drag & Drop Visual Classes */
-    .draggable-item {
-      cursor: grab;
-    }
-    .draggable-item:active {
-      cursor: grabbing;
-    }
-    .dragging {
-      opacity: 0.4;
-      transform: scale(0.95);
-    }
-    .drag-over {
-      border: 2px dashed #6366f1 !important;
-      background-color: rgba(99, 102, 241, 0.15) !important;
-    }
-
-    /* Shelf View Style */
-    .shelf-item {
-      transition: all 0.3s ease;
-    }
-    .shelf-item:hover {
-      transform: translateY(-6px) scale(1.03);
-    }
-  </style>
-
-  <!-- Firebase Cloud Integration -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-    // Application ID and Environment Config
-    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-fantasy-library';
-    const firebaseConfig = typeof __firebase_config !== 'undefined' 
-      ? JSON.parse(__firebase_config) 
-      : {
-          apiKey: "demo-key",
-          authDomain: "demo-app.firebaseapp.com",
-          projectId: "demo-app",
-          storageBucket: "demo-app.appspot.com",
-          messagingSenderId: "123456789",
-          appId: "1:123456789:web:123456789"
-        };
-
-    // Global Cloud Storage Controller
-    window.CloudStorage = {
-      db: null,
-      auth: null,
-      userId: null,
-      appId: appId,
-      isCloudActive: false,
-
-      async init() {
-        try {
-          const app = initializeApp(firebaseConfig);
-          this.auth = getAuth(app);
-          this.db = getFirestore(app);
-
-          // Authenticate
-          if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-            await signInWithCustomToken(this.auth, __initial_auth_token);
-          } else {
-            await signInAnonymously(this.auth);
-          }
-
-          onAuthStateChanged(this.auth, (user) => {
-            if (user) {
-              this.userId = user.uid;
-              this.isCloudActive = true;
-              this.showSyncStatus(true);
-              this.subscribeCloudSync();
-            } else {
-              this.isCloudActive = false;
-              this.showSyncStatus(false);
-            }
-          });
-        } catch (err) {
-          console.warn("Firebase initialization skipped or failed, using local storage fallback:", err);
-          this.isCloudActive = false;
-          this.showSyncStatus(false);
+    <style>
+        body {
+            font-family: 'Noto Sans Georgian', 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            user-select: none;
         }
-      },
-
-      showSyncStatus(active) {
-        const badge = document.getElementById('cloudStatusBadge');
-        if (badge) {
-          if (active) {
-            badge.className = "px-3 py-1 bg-emerald-950/80 text-emerald-400 border border-emerald-800/60 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm";
-            badge.innerHTML = `<i class="fa-solid fa-cloud"></i> <span>სინქრონიზებულია</span>`;
-          } else {
-            badge.className = "px-3 py-1 bg-amber-950/80 text-amber-400 border border-amber-800/60 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm";
-            badge.innerHTML = `<i class="fa-solid fa-hard-drive"></i> <span>შენახულია ლოკალურად</span>`;
-          }
+        .select-text {
+            user-select: text !important;
         }
-      },
-
-      subscribeCloudSync() {
-        if (!this.isCloudActive || !this.userId) return;
-        
-        // Listen to public data path for cross-device shared library & settings
-        const docRef = doc(this.db, 'artifacts', this.appId, 'public', 'data', 'library', 'main_collection');
-        
-        onSnapshot(docRef, (snapshot) => {
-          if (snapshot.exists()) {
-            const data = snapshot.data();
-            if (data && Array.isArray(data.books)) {
-              window.updateBooksFromCloud(data.books);
-            }
-            if (data && data.settings) {
-              window.updateSettingsFromCloud(data.settings);
-            }
-          } else {
-            // First time setup: upload local state to cloud
-            this.saveToCloud(window.books, window.settings);
-          }
-        }, (error) => {
-          console.error("Cloud snapshot sync error:", error);
-        });
-      },
-
-      async saveToCloud(booksData, settingsData) {
-        if (!this.isCloudActive || !this.userId) return;
-        try {
-          const docRef = doc(this.db, 'artifacts', this.appId, 'public', 'data', 'library', 'main_collection');
-          await setDoc(docRef, {
-            books: booksData,
-            settings: settingsData,
-            updatedAt: new Date().toISOString(),
-            lastUpdatedBy: this.userId
-          }, { merge: true });
-        } catch (e) {
-          console.error("Cloud save failed:", e);
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
         }
-      }
-    };
-
-    window.addEventListener('DOMContentLoaded', () => {
-      window.CloudStorage.init();
-    });
-  </script>
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+        .drag-ghost {
+            opacity: 0.4;
+            transform: scale(0.98);
+        }
+        .shelf-wood {
+            background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+            border-bottom: 8px solid #334155;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+        }
+        /* Star rating SVG gradient support */
+        .star-fill {
+            transition: all 0.2s ease;
+        }
+    </style>
 </head>
-<body class="bg-library-900 text-slate-200 antialiased selection:bg-indigo-500 selection:text-white pb-12">
+<body class="min-h-full flex flex-col bg-slate-900 text-slate-100 antialiased selection:bg-indigo-500 selection:text-white">
 
-  <!-- Main Container -->
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
-
-    <!-- Header & App Controls -->
-    <header class="bg-library-800/80 backdrop-blur-md rounded-2xl p-6 mb-8 border border-slate-700/60 shadow-xl">
-      <div class="flex flex-col md:flex-row justify-between items-center gap-4 border-b border-slate-700/80 pb-6 mb-6">
-        <div class="flex items-center gap-4">
-          <div id="headerIconWrapper" class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center shadow-lg shadow-indigo-500/30 transition-all duration-300">
-            <i id="headerIcon" class="fa-solid font-bold fa-book-bookmark text-2xl text-white"></i>
-          </div>
-          <div>
-            <div class="flex items-center gap-3">
-              <h1 id="appTitleDisplay" class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight select-text">
-                ბიბლიოთეკა
-              </h1>
-              <div id="cloudStatusBadge" class="px-3 py-1 bg-slate-800 text-slate-400 border border-slate-700 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm">
-                <i class="fa-solid fa-spinner animate-spin"></i> <span>იტვირთება...</span>
-              </div>
+    <!-- TOP NAVIGATION & STATUS BAR -->
+    <header class="sticky top-0 z-30 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-4 py-3 shadow-lg">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+            
+            <!-- Logo & Title -->
+            <div class="flex items-center space-x-3">
+                <div id="appLogoContainer" class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-xl shadow-lg shadow-indigo-500/30">
+                    <span id="appLogoIcon">🚀</span>
+                </div>
+                <div>
+                    <h1 id="appTitleText" class="text-xl font-bold bg-gradient-to-r from-white via-slate-200 to-indigo-300 bg-clip-text text-transparent">
+                        ფანტასტიკური ბიბლიოთეკა
+                    </h1>
+                    <p id="appSubtitleText" class="text-xs text-slate-400">პირადი კოლექციის მართვა & სინქრონიზაცია</p>
+                </div>
             </div>
-            <p id="appSubtitleDisplay" class="text-xs sm:text-sm text-slate-400 mt-1 select-text">
-              თქვენი პირადი წიგნების კოლექციონერის პორტალი (Cloud Sync)
-            </p>
-          </div>
-        </div>
 
-        <!-- Quick Stats Badge & Main Actions -->
-        <div class="flex flex-wrap items-center gap-3 w-full md:w-auto justify-end">
-          <button onclick="openAddBookModal()" class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold rounded-xl transition duration-200 flex items-center gap-2 shadow-lg shadow-indigo-600/30">
-            <i class="fa-solid fa-plus"></i> წიგნის დამატება
-          </button>
+            <!-- Sync Status Indicator & Quick Controls -->
+            <div class="flex items-center space-x-3">
+                <!-- Sync Badge -->
+                <div id="syncBadge" class="flex items-center px-3 py-1 rounded-full text-xs font-medium bg-slate-800 border border-slate-700 text-slate-300 shadow-inner">
+                    <span id="syncDot" class="w-2 h-2 rounded-full bg-amber-500 mr-2 animate-pulse"></span>
+                    <span id="syncText">მოწმდება...</span>
+                </div>
 
-          <!-- Settings Button -->
-          <button onclick="openSettingsModal()" title="პარამეტრები / სეთინგები" class="p-2.5 bg-slate-700/80 hover:bg-slate-700 text-indigo-300 hover:text-white rounded-xl transition border border-slate-600 flex items-center gap-1.5 text-sm font-medium">
-            <i class="fa-solid fa-gear text-indigo-400"></i>
-            <span class="hidden sm:inline">პარამეტრები</span>
-          </button>
-          
-          <button onclick="exportData()" title="მონაცემების ექსპორტი (Backup)" class="p-2.5 bg-slate-700/70 hover:bg-slate-700 text-slate-300 rounded-xl transition border border-slate-600">
-            <i class="fa-solid fa-download"></i>
-          </button>
-          
-          <label title="მონაცემების იმპორტი" class="p-2.5 bg-slate-700/70 hover:bg-slate-700 text-slate-300 rounded-xl transition border border-slate-600 cursor-pointer">
-            <i class="fa-solid fa-upload"></i>
-            <input type="file" id="importFile" class="hidden" accept=".json" onchange="importData(event)">
-          </label>
+                <!-- Add Book Button -->
+                <button onclick="openAddBookModal()" class="flex items-center space-x-2 bg-indigo-600 hover:bg-indigo-500 text-white px-3.5 py-2 rounded-lg text-sm font-medium transition duration-150 shadow-md shadow-indigo-600/20 active:scale-95">
+                    <i class="fa-solid font-bold fa-plus"></i>
+                    <span class="hidden sm:inline">ახალი წიგნი</span>
+                </button>
 
-          <button onclick="resetCollectionPrompt()" title="გადატვირთვა" class="p-2.5 bg-rose-900/40 hover:bg-rose-800/60 text-rose-300 rounded-xl transition border border-rose-700/50">
-            <i class="fa-solid fa-rotate-right"></i>
-          </button>
-        </div>
-      </div>
+                <!-- Backup / Export Button -->
+                <button onclick="exportJSONBackup()" title="მონაცემთა რეზერვირება (JSON)" class="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-sm transition border border-slate-700">
+                    <i class="fa-solid fa-download"></i>
+                </button>
+                <label title="JSON აღდგენა" class="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-sm transition border border-slate-700 cursor-pointer">
+                    <i class="fa-solid fa-upload"></i>
+                    <input type="file" id="importJsonInput" accept=".json" class="hidden" onchange="importJSONBackup(event)">
+                </label>
 
-      <!-- Stats Bar (Toggleable) -->
-      <div id="statsBarContainer" class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-        <div class="bg-slate-900/70 rounded-xl p-3.5 border border-slate-700/50">
-          <span class="text-xs text-slate-400 font-medium block mb-1">სულ კოლექციაში</span>
-          <span id="statTotal" class="text-xl font-bold text-white">0</span>
+                <!-- Settings Button -->
+                <button onclick="openSettingsModal()" title="პარამეტრები" class="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-sm transition border border-slate-700">
+                    <i class="fa-solid fa-gear text-slate-300"></i>
+                </button>
+            </div>
         </div>
-        <div class="bg-emerald-950/40 rounded-xl p-3.5 border border-emerald-800/40">
-          <span class="text-xs text-emerald-400 font-medium block mb-1">შეგროვებულია</span>
-          <span id="statCollected" class="text-xl font-bold text-emerald-400">0</span>
-        </div>
-        <div class="bg-amber-950/40 rounded-xl p-3.5 border border-amber-800/40">
-          <span class="text-xs text-amber-400 font-medium block mb-1">აკლია (სურვილებში)</span>
-          <span id="statWishlist" class="text-xl font-bold text-amber-400">0</span>
-        </div>
-        <div class="bg-indigo-950/40 rounded-xl p-3.5 border border-indigo-800/40">
-          <span class="text-xs text-indigo-300 font-medium block mb-1">პროგრესი</span>
-          <span id="statPercent" class="text-xl font-bold text-indigo-400">0%</span>
-        </div>
-      </div>
-
-      <!-- Live Progress Bar (Toggleable) -->
-      <div id="progressBarContainer" class="w-full bg-slate-900 rounded-full h-3 overflow-hidden border border-slate-700/50">
-        <div id="progressBar" class="bg-gradient-to-r from-indigo-500 via-emerald-400 to-emerald-500 h-full transition-all duration-500 rounded-full" style="width: 0%"></div>
-      </div>
     </header>
 
-    <!-- Filter Controls & Search Toolbar -->
-    <div class="bg-library-800/60 backdrop-blur-md rounded-2xl p-4 mb-6 border border-slate-700/60 shadow-lg flex flex-col md:flex-row gap-4 items-center justify-between">
-      
-      <!-- Search Box -->
-      <div class="relative w-full md:w-80">
-        <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
-        <input type="text" id="searchInput" oninput="render()" placeholder="ძებნა სათაურით ან შენიშვნით..." 
-          class="w-full pl-10 pr-4 py-2 bg-slate-900/90 border border-slate-700 rounded-xl text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-slate-200 placeholder-slate-500">
-      </div>
+    <!-- MAIN CONTAINER -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-6">
 
-      <!-- Filter Tabs -->
-      <div class="flex flex-wrap items-center gap-1.5 bg-slate-900/80 p-1.5 rounded-xl border border-slate-700/80 text-xs sm:text-sm font-medium w-full md:w-auto justify-center">
-        <button onclick="setFilter('all')" id="filter-all" class="px-3.5 py-1.5 rounded-lg transition duration-150 active-filter bg-indigo-600 text-white font-semibold">ყველა</button>
-        <button onclick="setFilter('collected')" id="filter-collected" class="px-3.5 py-1.5 rounded-lg text-slate-400 hover:text-white transition duration-150">შეგროვებულია</button>
-        <button onclick="setFilter('missing')" id="filter-missing" class="px-3.5 py-1.5 rounded-lg text-slate-400 hover:text-white transition duration-150">აკლია</button>
-        <button onclick="setFilter('wishlist')" id="filter-wishlist" class="px-3.5 py-1.5 rounded-lg text-slate-400 hover:text-white transition duration-150">სურვილებში</button>
-      </div>
+        <!-- STATS & PROGRESS SECTION -->
+        <section id="statsSection" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <!-- Progress Card -->
+            <div class="md:col-span-2 bg-slate-800/80 border border-slate-700/60 rounded-2xl p-4 shadow-xl flex flex-col justify-between backdrop-blur">
+                <div class="flex justify-between items-start mb-2">
+                    <div>
+                        <span class="text-xs uppercase font-bold tracking-wider text-indigo-400">კოლექციის პროგრესი</span>
+                        <h2 class="text-2xl font-extrabold text-white mt-0.5">
+                            <span id="collectedCount">0</span> / <span id="totalCount">0</span>
+                            <span class="text-sm font-normal text-slate-400 ml-1">წიგნი შეგროვებულია</span>
+                        </h2>
+                    </div>
+                    <span id="progressPercentage" class="text-2xl font-black text-indigo-400 bg-indigo-950/60 border border-indigo-800/50 px-3 py-1 rounded-xl">0%</span>
+                </div>
+                
+                <!-- Progress Bar -->
+                <div id="progressBarContainer" class="w-full bg-slate-900 rounded-full h-3 overflow-hidden p-0.5 border border-slate-700/50 mt-2">
+                    <div id="progressBar" class="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 h-full rounded-full transition-all duration-500 shadow-sm" style="width: 0%"></div>
+                </div>
+            </div>
 
-      <!-- View Switcher -->
-      <div class="flex items-center gap-1 bg-slate-900/80 p-1.5 rounded-xl border border-slate-700/80">
-        <button onclick="setView('grid')" id="view-grid" title="ბარათების ბადე (3D)" class="p-2 rounded-lg text-indigo-400 bg-slate-800 transition">
-          <i class="fa-solid fa-grip-vertical text-lg"></i>
-        </button>
-        <button onclick="setView('list')" id="view-list" title="კომპაქტური სია" class="p-2 rounded-lg text-slate-400 hover:text-white transition">
-          <i class="fa-solid fa-list text-lg"></i>
-        </button>
-        <button onclick="setView('shelf')" id="view-shelf" title="თაროების ხედი" class="p-2 rounded-lg text-slate-400 hover:text-white transition">
-          <i class="fa-solid fa-book-open text-lg"></i>
-        </button>
-      </div>
-    </div>
+            <!-- Quick Stat 1: Read/Collected -->
+            <div class="bg-slate-800/80 border border-slate-700/60 rounded-2xl p-4 shadow-xl flex items-center space-x-4">
+                <div class="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center text-xl">
+                    <i class="fa-solid fa-bookmark"></i>
+                </div>
+                <div>
+                    <p class="text-xs text-slate-400">შეგროვებული წიგნები</p>
+                    <p id="statCollectedNumber" class="text-xl font-bold text-slate-100">0</p>
+                </div>
+            </div>
 
-    <!-- Main Container where books are rendered -->
-    <main id="booksContainer" class="min-h-[400px]">
-      <!-- Content dynamically injected here -->
+            <!-- Quick Stat 2: Wishlist -->
+            <div class="bg-slate-800/80 border border-slate-700/60 rounded-2xl p-4 shadow-xl flex items-center space-x-4">
+                <div class="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center text-xl">
+                    <i class="fa-solid fa-heart"></i>
+                </div>
+                <div>
+                    <p class="text-xs text-slate-400">სურვილების სიაში</p>
+                    <p id="statWishlistNumber" class="text-xl font-bold text-slate-100">0</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- TOOLBAR & FILTERS -->
+        <section class="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 shadow-md backdrop-blur">
+            <!-- Search Input -->
+            <div class="relative flex-1 min-w-[220px]">
+                <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                <input type="text" id="searchInput" oninput="renderBooks()" placeholder="ძიება სათაურით, ავტორით ან ტომით..." 
+                       class="w-full bg-slate-900 border border-slate-700 rounded-xl pl-10 pr-4 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition">
+            </div>
+
+            <!-- Filter Tabs -->
+            <div class="flex items-center space-x-1 bg-slate-900 p-1 rounded-xl border border-slate-700 text-xs font-medium">
+                <button onclick="setFilter('all')" id="filterBtn-all" class="px-3 py-1.5 rounded-lg transition text-white bg-indigo-600 shadow">ყველა</button>
+                <button onclick="setFilter('collected')" id="filterBtn-collected" class="px-3 py-1.5 rounded-lg text-slate-400 hover:text-white transition">შეგროვებული</button>
+                <button onclick="setFilter('wishlist')" id="filterBtn-wishlist" class="px-3 py-1.5 rounded-lg text-slate-400 hover:text-white transition">სურვილების სია</button>
+                <button onclick="setFilter('rated')" id="filterBtn-rated" class="px-3 py-1.5 rounded-lg text-slate-400 hover:text-white transition">შეფასებული</button>
+            </div>
+
+            <!-- Dynamic Genre Filter -->
+            <select id="genreFilter" onchange="renderBooks()" class="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500">
+                <option value="all">ყველა ჟანრი</option>
+            </select>
+
+            <!-- Sorting Select -->
+            <select id="sortSelect" onchange="renderBooks()" class="bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500">
+                <option value="order">თანმიმდევრობით (Order)</option>
+                <option value="ratingDesc">შეფასებით (მაღლიდან)</option>
+                <option value="ratingAsc">შეფასებით (დაბლიდან)</option>
+                <option value="title">სათაურით (ა-ჰ)</option>
+                <option value="author">ავტორით</option>
+            </select>
+
+            <!-- View Mode Switcher -->
+            <div class="flex items-center space-x-1 bg-slate-900 p-1 rounded-xl border border-slate-700">
+                <button onclick="setViewMode('grid')" id="viewBtnGrid" class="p-1.5 text-indigo-400 rounded-lg hover:bg-slate-800 transition">
+                    <i class="fa-solid fa-border-all text-sm"></i>
+                </button>
+                <button onclick="setViewMode('list')" id="viewBtnList" class="p-1.5 text-slate-400 rounded-lg hover:bg-slate-800 transition">
+                    <i class="fa-solid fa-list text-sm"></i>
+                </button>
+            </div>
+        </section>
+
+        <!-- BOOK GRID / LIST CONTAINER -->
+        <section id="booksContainer" class="w-full min-h-[300px]">
+            <!-- Books will be injected dynamically via JS -->
+        </section>
+
     </main>
 
-  </div>
-
-  <!-- Settings Modal (⚙️ პარამეტრები) -->
-  <div id="settingsModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-    <div class="bg-library-800 border border-slate-700 rounded-2xl w-full max-w-xl overflow-hidden shadow-2xl transform transition-all my-8">
-      <div class="flex justify-between items-center p-5 border-b border-slate-700 bg-slate-900/40">
-        <h3 class="text-lg font-bold text-white flex items-center gap-2">
-          <i class="fa-solid fa-gear text-indigo-400"></i> აპლიკაციის პარამეტრები
-        </h3>
-        <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-white p-1 rounded-lg">
-          <i class="fa-solid fa-xmark text-xl"></i>
-        </button>
-      </div>
-      
-      <form id="settingsForm" onsubmit="saveSettingsForm(event)" class="p-6 space-y-5">
-        
-        <!-- App Title & Subtitle -->
-        <div class="space-y-3">
-          <h4 class="text-xs font-bold text-indigo-400 uppercase tracking-wider">ძირითადი იერსახე</h4>
-          <div>
-            <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">აპლიკაციის სათაური</label>
-            <input type="text" id="settingInputTitle" required placeholder="მაგ. ბიბლიოთეკა" class="w-full px-3.5 py-2 bg-slate-900 border border-slate-700 rounded-xl text-slate-100 text-sm focus:ring-1 focus:ring-indigo-500 focus:outline-none">
-          </div>
-
-          <div>
-            <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">ქვესათაური / აღწერა</label>
-            <input type="text" id="settingInputSubtitle" placeholder="მაგ. ჩემი პირადი კოლექცია" class="w-full px-3.5 py-2 bg-slate-900 border border-slate-700 rounded-xl text-slate-100 text-sm focus:ring-1 focus:ring-indigo-500 focus:outline-none">
-          </div>
+    <!-- FOOTER -->
+    <footer class="mt-auto border-t border-slate-800 py-6 text-center text-xs text-slate-500">
+        <div class="max-w-7xl mx-auto px-4">
+            <p>ფანტასტიკური ბიბლიოთეკა &copy; 2026. ყველა უფლება დაცულია.</p>
+            <p class="mt-1 text-slate-600">ავტომატური Cloud სინქრონიზაცია • HTML5 Canvas სურათების ოპტიმიზაცია</p>
         </div>
+    </footer>
 
-        <!-- Header Icon Selection -->
-        <div>
-          <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">ლოგოს იკონკა</label>
-          <div class="grid grid-cols-6 gap-2">
-            <label class="cursor-pointer border border-slate-700 rounded-xl p-2.5 flex items-center justify-center hover:bg-slate-700/50 has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-950/40">
-              <input type="radio" name="headerIcon" value="fa-book-bookmark" class="hidden">
-              <i class="fa-solid fa-book-bookmark text-lg text-indigo-400"></i>
-            </label>
-            <label class="cursor-pointer border border-slate-700 rounded-xl p-2.5 flex items-center justify-center hover:bg-slate-700/50 has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-950/40">
-              <input type="radio" name="headerIcon" value="fa-book-open" class="hidden">
-              <i class="fa-solid fa-book-open text-lg text-emerald-400"></i>
-            </label>
-            <label class="cursor-pointer border border-slate-700 rounded-xl p-2.5 flex items-center justify-center hover:bg-slate-700/50 has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-950/40">
-              <input type="radio" name="headerIcon" value="fa-feather" class="hidden">
-              <i class="fa-solid fa-feather text-lg text-amber-400"></i>
-            </label>
-            <label class="cursor-pointer border border-slate-700 rounded-xl p-2.5 flex items-center justify-center hover:bg-slate-700/50 has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-950/40">
-              <input type="radio" name="headerIcon" value="fa-wand-magic-sparkles" class="hidden">
-              <i class="fa-solid fa-wand-magic-sparkles text-lg text-purple-400"></i>
-            </label>
-            <label class="cursor-pointer border border-slate-700 rounded-xl p-2.5 flex items-center justify-center hover:bg-slate-700/50 has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-950/40">
-              <input type="radio" name="headerIcon" value="fa-fort-awesome" class="hidden">
-              <i class="fa-solid fa-fort-awesome text-lg text-sky-400"></i>
-            </label>
-            <label class="cursor-pointer border border-slate-700 rounded-xl p-2.5 flex items-center justify-center hover:bg-slate-700/50 has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-950/40">
-              <input type="radio" name="headerIcon" value="fa-dragon" class="hidden">
-              <i class="fa-solid fa-dragon text-lg text-rose-400"></i>
-            </label>
-          </div>
-        </div>
-
-        <!-- Layout & Column Configuration -->
-        <div class="space-y-3 pt-2 border-t border-slate-700/60">
-          <h4 class="text-xs font-bold text-indigo-400 uppercase tracking-wider">განლაგების პარამეტრები</h4>
-          
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">ნაგულისხმევი ხედი</label>
-              <select id="settingInputDefaultView" class="w-full px-3.5 py-2 bg-slate-900 border border-slate-700 rounded-xl text-slate-100 text-sm focus:ring-1 focus:ring-indigo-500 focus:outline-none">
-                <option value="grid">ბარათების ბადე (3D)</option>
-                <option value="list">კომპაქტური სია</option>
-                <option value="shelf">თაროების ხედი</option>
-              </select>
-            </div>
-
-            <div>
-              <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">ბადის სვეტების რაოდენობა</label>
-              <select id="settingInputGridCols" class="w-full px-3.5 py-2 bg-slate-900 border border-slate-700 rounded-xl text-slate-100 text-sm focus:ring-1 focus:ring-indigo-500 focus:outline-none">
-                <option value="3">3 სვეტი</option>
-                <option value="4">4 სვეტი</option>
-                <option value="5" selected>5 სვეტი (სტანდარტული)</option>
-                <option value="6">6 სვეტი (კომპაქტური)</option>
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">წიგნების რაოდენობა ერთ თაროზე</label>
-            <input type="number" id="settingInputBooksPerShelf" min="4" max="16" value="8" class="w-full px-3.5 py-2 bg-slate-900 border border-slate-700 rounded-xl text-slate-100 text-sm focus:ring-1 focus:ring-indigo-500 focus:outline-none">
-          </div>
-        </div>
-
-        <!-- Visibility Switches -->
-        <div class="space-y-2 pt-2 border-t border-slate-700/60">
-          <h4 class="text-xs font-bold text-indigo-400 uppercase tracking-wider mb-2">ვიზუალური ელემენტების გამოჩენა</h4>
-          
-          <div class="space-y-2">
-            <label class="flex items-center justify-between p-2.5 bg-slate-900/60 rounded-xl border border-slate-700/50 cursor-pointer hover:bg-slate-900">
-              <span class="text-xs font-semibold text-slate-200">სტატისტიკის პანელის გამოჩენა</span>
-              <input type="checkbox" id="settingInputShowStats" class="w-4 h-4 rounded text-indigo-600 bg-slate-900 border-slate-700 focus:ring-indigo-500">
-            </label>
-
-            <label class="flex items-center justify-between p-2.5 bg-slate-900/60 rounded-xl border border-slate-700/50 cursor-pointer hover:bg-slate-900">
-              <span class="text-xs font-semibold text-slate-200">პროგრესის ზოლის (Progress Bar) გამოჩენა</span>
-              <input type="checkbox" id="settingInputShowProgress" class="w-4 h-4 rounded text-indigo-600 bg-slate-900 border-slate-700 focus:ring-indigo-500">
-            </label>
-
-            <label class="flex items-center justify-between p-2.5 bg-slate-900/60 rounded-xl border border-slate-700/50 cursor-pointer hover:bg-slate-900">
-              <span class="text-xs font-semibold text-slate-200">წიგნების პირადი შენიშვნების გამოჩენა ბარათებზე</span>
-              <input type="checkbox" id="settingInputShowNotes" class="w-4 h-4 rounded text-indigo-600 bg-slate-900 border-slate-700 focus:ring-indigo-500">
-            </label>
-          </div>
-        </div>
-
-        <div class="flex justify-between items-center pt-4 border-t border-slate-700">
-          <button type="button" onclick="restoreDefaultSettings()" class="px-3.5 py-2 bg-rose-900/40 hover:bg-rose-800/60 text-rose-300 text-xs font-medium rounded-xl transition border border-rose-700/50">
-            <i class="fa-solid fa-rotate-left mr-1"></i> საწყისზე დაბრუნება
-          </button>
-
-          <div class="flex gap-2">
-            <button type="button" onclick="closeSettingsModal()" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm font-medium rounded-xl transition">გაუქმება</button>
-            <button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold rounded-xl transition shadow-lg shadow-indigo-600/30">შენახვა</button>
-          </div>
-        </div>
-
-      </form>
-    </div>
-  </div>
-
-  <!-- Image & Book Edit Modal -->
-  <div id="bookModal" class="fixed inset-0 z-50 hidden bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
-    <div class="bg-library-800 border border-slate-700 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl transform transition-all">
-      <div class="flex justify-between items-center p-5 border-b border-slate-700">
-        <h3 id="modalTitle" class="text-lg font-bold text-white flex items-center gap-2">
-          <i class="fa-solid fa-pen-to-square text-indigo-400"></i> წიგნის რედაქტირება
-        </h3>
-        <button onclick="closeModal()" class="text-slate-400 hover:text-white p-1 rounded-lg">
-          <i class="fa-solid fa-xmark text-xl"></i>
-        </button>
-      </div>
-      
-      <form id="bookForm" onsubmit="saveModalData(event)" class="p-6 space-y-4">
-        <input type="hidden" id="modalBookId">
-
-        <div>
-          <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">სათაური</label>
-          <input type="text" id="modalInputTitle" required class="w-full px-3.5 py-2 bg-slate-900 border border-slate-700 rounded-xl text-slate-100 text-sm focus:ring-1 focus:ring-indigo-500 focus:outline-none">
-        </div>
-
-        <div>
-          <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">ყდის სურათის ატვირთვა ან URL</label>
-          <div class="flex gap-2 mb-2">
-            <input type="text" id="modalInputImageUrl" placeholder="https://..." class="flex-1 px-3.5 py-2 bg-slate-900 border border-slate-700 rounded-xl text-slate-100 text-sm focus:ring-1 focus:ring-indigo-500 focus:outline-none">
-            <button type="button" onclick="triggerGoogleSearch()" class="px-3 py-2 bg-slate-700 hover:bg-slate-600 text-xs font-medium text-slate-200 rounded-xl border border-slate-600 flex items-center gap-1.5">
-              <i class="fa-brands fa-google"></i> ძებნა
+    <!-- EDIT / ADD BOOK MODAL -->
+    <div id="bookModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm hidden flex items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-lg w-full p-6 shadow-2xl relative my-8">
+            <button onclick="closeBookModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white p-2 text-lg">
+                <i class="fa-solid fa-xmark"></i>
             </button>
-          </div>
-          
-          <!-- File Upload Option -->
-          <div class="flex items-center justify-center w-full">
-            <label class="flex flex-col items-center justify-center w-full h-24 border-2 border-slate-700 border-dashed rounded-xl cursor-pointer bg-slate-900/50 hover:bg-slate-900 transition">
-              <div class="flex flex-col items-center justify-center pt-2 pb-2">
-                <i class="fa-solid fa-cloud-arrow-up text-indigo-400 text-xl mb-1"></i>
-                <p class="text-xs text-slate-400">დააჭირეთ ფაილის ასარჩევად (JPG, PNG, WEBP)</p>
-              </div>
-              <input type="file" id="modalInputFileInput" accept="image/*" class="hidden" onchange="handleFileUpload(event)">
-            </label>
-          </div>
-        </div>
-
-        <!-- Image Preview -->
-        <div id="imagePreviewContainer" class="hidden text-center">
-          <span class="text-xs text-slate-400 block mb-1">ყდის წინასწარი გადახედვა:</span>
-          <img id="imagePreview" src="" alt="Preview" class="h-36 mx-auto rounded-lg object-cover shadow-md border border-slate-700">
-        </div>
-
-        <div>
-          <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1">პირადი შენიშვნა / რევიუ</label>
-          <textarea id="modalInputNotes" rows="3" placeholder="მაგ. გამოცემა, მდგომარეობა, სად შევიძინე..." class="w-full px-3.5 py-2 bg-slate-900 border border-slate-700 rounded-xl text-slate-100 text-sm focus:ring-1 focus:ring-indigo-500 focus:outline-none"></textarea>
-        </div>
-
-        <div class="flex items-center justify-between pt-2">
-          <label class="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" id="modalInputCollected" class="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 bg-slate-900 border-slate-700">
-            <span class="text-sm font-medium text-slate-200">შეგროვებულია</span>
-          </label>
-          <label class="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" id="modalInputWishlist" class="w-4 h-4 rounded text-amber-500 focus:ring-amber-500 bg-slate-900 border-slate-700">
-            <span class="text-sm font-medium text-amber-400">სურვილების სიაში</span>
-          </label>
-        </div>
-
-        <div class="flex justify-end gap-3 pt-4 border-t border-slate-700">
-          <button type="button" onclick="closeModal()" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm font-medium rounded-xl transition">გაუქმება</button>
-          <button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold rounded-xl transition shadow-lg shadow-indigo-600/30">შენახვა</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- Large Cover Image Lightbox Viewer -->
-  <div id="lightboxModal" class="fixed inset-0 z-50 hidden bg-black/90 backdrop-blur-md flex items-center justify-center p-4" onclick="closeLightbox()">
-    <div class="relative max-w-3xl max-h-[90vh] flex flex-col items-center" onclick="event.stopPropagation()">
-      <button onclick="closeLightbox()" class="absolute -top-10 right-0 text-white hover:text-indigo-400 text-2xl">
-        <i class="fa-solid fa-xmark"></i>
-      </button>
-      <img id="lightboxImage" src="" alt="Book Cover" class="max-h-[75vh] rounded-xl shadow-2xl object-contain border border-slate-700">
-      <h3 id="lightboxTitle" class="text-white text-lg font-bold mt-4 text-center select-text"></h3>
-    </div>
-  </div>
-
-  <!-- Notification Toast -->
-  <div id="toast" class="fixed bottom-6 right-6 z-50 transform translate-y-20 opacity-0 transition-all duration-300 bg-slate-800 text-white border border-slate-700 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3">
-    <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400"></i>
-    <span id="toastMessage" class="text-sm font-medium">შენახულია!</span>
-  </div>
-
-  <script>
-    // Default Book Database
-    const DEFAULT_BOOKS = [
-      'მარსის ქრონიკა', 'უბიკი', 'მარადისობის აღსასრული', 'კაცი რომელმაც მთვარე გაყიდა', 'ტანმოხატული კაცი',
-      'განპყრობილი', 'ახლა კი გასულ წელს დაველოდოთ', 'ვალისი', 'ზღვამიწეთის ჯადოქარი', 'ძნელია ღმერთობა',
-      'შენი ცხოვრების ამბები', 'პალმერ ედრიჩის სამი სტიგმა', 'კაცი მაღალ კოშკში', 'სიგიჟის მთებთან', 'პიკნიკი გზის პირას',
-      'მე რობოტი', 'უცხო უცხოთა ქვეყანაში', 'კოსმოსური ოდისეა 2001', '2010 ოდისეა 2', 'ატაუანის აკლდამები',
-      'ბუნდოვნად სარკეში', 'იდინე ცრემლო თქვა პოლიციელმა', 'ენდერის თამაში', 'სინათლის მეუფე', 'ოცნებობენ ანდროიდები ელექტრონულ ცხვრებზე',
-      'მთელი ზაფხული ერთ დღეში', 'ბედნიერების მექანიზმები', 'დამხმარე მართმსაჯულება', 'პირველი კანონი: თვით მახვილი', 'პირველი კანონი: მეფეთა უკანასკნელი არგუმენტი',
-      'პირველი კანონი: სანამ მათ ჩამოახრჩობენ', '9', 'სიგიჟის მთებთან (დუბლი)', 'ატაუნის აკლდამები (დუბლი)', 'ბრძენკაცის შიში I',
-      'ბრძენკაცის შიში II', 'რენდოლფ კარტერის ჩვენება', 'მაძიებელი - ჯადოქრის პირველი კანონი I', 'მაძიებელი - ჯადოქრის პირველი კანონი II', '8',
-      'ქარის სახელი', 'მეტრო 2033', 'მეტრო 2034', 'მეტრო 2035', 'ორშაბათი იწყება შაბათს',
-      'ქთლუჰუს ძახილი', 'მოთხრობები', 'ყვავილები ელჯერნონისთვის', 'წყვდიადის მარცხენა ხელი', 'ორსის ორდენის სამხეცი',
-      'ნისქმნილი 1', 'ნისქმნილი 2', 'ნისქმნილი 3', 'სახეცვლილი ნახშირბადი', 'დიუნი',
-      'ვამპირის ქრონიკები', 'ჭეშმარიტების მახვილი', 'თბილი სხეულები', 'ინტერვიუ ვამპირთან', 'ჭიანჭველების დღე',
-      'ჭიანჭველების რევოლუცია 1', 'ჭიანჭველების რევოლუცია 2'
-    ];
-
-    // Default Application Settings
-    const DEFAULT_SETTINGS = {
-      appTitle: 'ბიბლიოთეკა',
-      appSubtitle: 'თქვენი პირადი წიგნების კოლექციონერის პორტალი (Cloud Sync)',
-      headerIcon: 'fa-book-bookmark',
-      defaultView: 'grid',
-      gridCols: 5,
-      booksPerShelf: 8,
-      showStats: true,
-      showProgress: true,
-      showNotes: true
-    };
-
-    // Global State Variables
-    window.books = [];
-    window.settings = { ...DEFAULT_SETTINGS };
-    
-    let currentFilter = 'all';
-    let currentView = 'grid'; // 'grid', 'list', 'shelf'
-    let uploadedImageData = null;
-    let draggedBookId = null;
-
-    // Local Storage Keys
-    const BOOKS_STORAGE_KEY = 'fantasy_library_data_v2';
-    const SETTINGS_STORAGE_KEY = 'fantasy_library_settings_v2';
-
-    // Initialize App on DOM Load
-    window.addEventListener('DOMContentLoaded', () => {
-      loadSettingsState();
-      loadBooksState();
-      applySettingsUI();
-      updateStats();
-      render();
-    });
-
-    // Cloud Data Sync Bridges
-    window.updateBooksFromCloud = function(cloudBooks) {
-      if (!Array.isArray(cloudBooks)) return;
-      window.books = cloudBooks;
-      localStorage.setItem(BOOKS_STORAGE_KEY, JSON.stringify(window.books));
-      updateStats();
-      render();
-    };
-
-    window.updateSettingsFromCloud = function(cloudSettings) {
-      if (!cloudSettings || typeof cloudSettings !== 'object') return;
-      window.settings = { ...DEFAULT_SETTINGS, ...cloudSettings };
-      localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(window.settings));
-      applySettingsUI();
-      render();
-    };
-
-    // Load Settings & Books from localStorage
-    function loadSettingsState() {
-      const savedSettings = localStorage.getItem(SETTINGS_STORAGE_KEY);
-      if (savedSettings) {
-        try {
-          window.settings = { ...DEFAULT_SETTINGS, ...JSON.parse(savedSettings) };
-        } catch(e) {
-          window.settings = { ...DEFAULT_SETTINGS };
-        }
-      }
-      currentView = window.settings.defaultView || 'grid';
-    }
-
-    function loadBooksState() {
-      const savedBooks = localStorage.getItem(BOOKS_STORAGE_KEY);
-      if (savedBooks) {
-        try {
-          window.books = JSON.parse(savedBooks);
-        } catch(e) {
-          initDefaultBooks();
-        }
-      } else {
-        initDefaultBooks();
-      }
-    }
-
-    function initDefaultBooks() {
-      window.books = DEFAULT_BOOKS.map((title, idx) => ({
-        id: 'book_' + Date.now() + '_' + idx,
-        title: title,
-        collected: false,
-        wishlist: false,
-        image: '',
-        notes: ''
-      }));
-      saveBooksState();
-    }
-
-    function saveBooksState() {
-      localStorage.setItem(BOOKS_STORAGE_KEY, JSON.stringify(window.books));
-      updateStats();
-      syncAllToCloud();
-    }
-
-    function saveSettingsState() {
-      localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(window.settings));
-      applySettingsUI();
-      syncAllToCloud();
-    }
-
-    function syncAllToCloud() {
-      if (window.CloudStorage && window.CloudStorage.saveToCloud) {
-        window.CloudStorage.saveToCloud(window.books, window.settings);
-      }
-    }
-
-    // Apply Dynamic UI Settings
-    function applySettingsUI() {
-      // Titles
-      const titleEl = document.getElementById('appTitleDisplay');
-      const headTitleEl = document.getElementById('pageHeadTitle');
-      const subtitleEl = document.getElementById('appSubtitleDisplay');
-      const iconEl = document.getElementById('headerIcon');
-
-      if (titleEl) titleEl.innerText = window.settings.appTitle || 'ბიბლიოთეკა';
-      if (headTitleEl) headTitleEl.innerText = `${window.settings.appTitle || 'ბიბლიოთეკა'} - Book Tracker`;
-      if (subtitleEl) subtitleEl.innerText = window.settings.appSubtitle || '';
-
-      // Header Icon
-      if (iconEl) {
-        iconEl.className = `fa-solid font-bold ${window.settings.headerIcon || 'fa-book-bookmark'} text-2xl text-white`;
-      }
-
-      // Visibility toggles
-      const statsBar = document.getElementById('statsBarContainer');
-      const progressBar = document.getElementById('progressBarContainer');
-
-      if (statsBar) statsBar.style.display = window.settings.showStats ? 'grid' : 'none';
-      if (progressBar) progressBar.style.display = window.settings.showProgress ? 'block' : 'none';
-    }
-
-    // Settings Modal Logic
-    function openSettingsModal() {
-      document.getElementById('settingInputTitle').value = window.settings.appTitle || '';
-      document.getElementById('settingInputSubtitle').value = window.settings.appSubtitle || '';
-      document.getElementById('settingInputDefaultView').value = window.settings.defaultView || 'grid';
-      document.getElementById('settingInputGridCols').value = window.settings.gridCols || 5;
-      document.getElementById('settingInputBooksPerShelf').value = window.settings.booksPerShelf || 8;
-      
-      document.getElementById('settingInputShowStats').checked = window.settings.showStats !== false;
-      document.getElementById('settingInputShowProgress').checked = window.settings.showProgress !== false;
-      document.getElementById('settingInputShowNotes').checked = window.settings.showNotes !== false;
-
-      // Radio Icon
-      const currentIcon = window.settings.headerIcon || 'fa-book-bookmark';
-      const radio = document.querySelector(`input[name="headerIcon"][value="${currentIcon}"]`);
-      if (radio) radio.checked = true;
-
-      document.getElementById('settingsModal').classList.remove('hidden');
-    }
-
-    function closeSettingsModal() {
-      document.getElementById('settingsModal').classList.add('hidden');
-    }
-
-    function saveSettingsForm(e) {
-      e.preventDefault();
-
-      const selectedIconRadio = document.querySelector('input[name="headerIcon"]:checked');
-
-      window.settings.appTitle = document.getElementById('settingInputTitle').value.trim() || 'ბიბლიოთეკა';
-      window.settings.appSubtitle = document.getElementById('settingInputSubtitle').value.trim();
-      window.settings.defaultView = document.getElementById('settingInputDefaultView').value;
-      window.settings.gridCols = parseInt(document.getElementById('settingInputGridCols').value) || 5;
-      window.settings.booksPerShelf = parseInt(document.getElementById('settingInputBooksPerShelf').value) || 8;
-      
-      window.settings.showStats = document.getElementById('settingInputShowStats').checked;
-      window.settings.showProgress = document.getElementById('settingInputShowProgress').checked;
-      window.settings.showNotes = document.getElementById('settingInputShowNotes').checked;
-
-      if (selectedIconRadio) {
-        window.settings.headerIcon = selectedIconRadio.value;
-      }
-
-      saveSettingsState();
-      render();
-      closeSettingsModal();
-      showToast('პარამეტრები წარმატებით განახლდა!');
-    }
-
-    function restoreDefaultSettings() {
-      if (confirm('გსურთ პარამეტრების საწყისზე დაბრუნება?')) {
-        window.settings = { ...DEFAULT_SETTINGS };
-        saveSettingsState();
-        render();
-        closeSettingsModal();
-        showToast('პარამეტრები აღდგენილია');
-      }
-    }
-
-    // UI Toast Notification
-    function showToast(msg, isSuccess = true) {
-      const toast = document.getElementById('toast');
-      const toastMessage = document.getElementById('toastMessage');
-      const toastIcon = document.getElementById('toastIcon');
-
-      toastMessage.innerText = msg;
-      toastIcon.className = isSuccess ? 'fa-solid fa-circle-check text-emerald-400' : 'fa-solid fa-triangle-exclamation text-amber-400';
-      
-      toast.classList.remove('translate-y-20', 'opacity-0');
-      toast.classList.add('translate-y-0', 'opacity-100');
-
-      setTimeout(() => {
-        toast.classList.remove('translate-y-0', 'opacity-100');
-        toast.classList.add('translate-y-20', 'opacity-0');
-      }, 2500);
-    }
-
-    // Calculate & Display Statistics
-    function updateStats() {
-      const total = window.books.length;
-      const collected = window.books.filter(b => b.collected).length;
-      const wishlist = window.books.filter(b => b.wishlist && !b.collected).length;
-      const percent = total > 0 ? Math.round((collected / total) * 100) : 0;
-
-      const statTotalEl = document.getElementById('statTotal');
-      const statCollectedEl = document.getElementById('statCollected');
-      const statWishlistEl = document.getElementById('statWishlist');
-      const statPercentEl = document.getElementById('statPercent');
-      const progressBarEl = document.getElementById('progressBar');
-
-      if (statTotalEl) statTotalEl.innerText = total;
-      if (statCollectedEl) statCollectedEl.innerText = collected;
-      if (statWishlistEl) statWishlistEl.innerText = wishlist;
-      if (statPercentEl) statPercentEl.innerText = percent + '%';
-      if (progressBarEl) progressBarEl.style.width = percent + '%';
-    }
-
-    // Filter and View Handling
-    function setFilter(filterType) {
-      currentFilter = filterType;
-      document.querySelectorAll('[id^="filter-"]').forEach(btn => {
-        btn.className = 'px-3.5 py-1.5 rounded-lg text-slate-400 hover:text-white transition duration-150';
-      });
-      const activeBtn = document.getElementById(`filter-${filterType}`);
-      if (activeBtn) {
-        activeBtn.className = 'px-3.5 py-1.5 rounded-lg bg-indigo-600 text-white transition duration-150 font-semibold shadow-md';
-      }
-      render();
-    }
-
-    function setView(viewType) {
-      currentView = viewType;
-      document.querySelectorAll('[id^="view-"]').forEach(btn => {
-        btn.className = 'p-2 rounded-lg text-slate-400 hover:text-white transition';
-      });
-      const activeBtn = document.getElementById(`view-${viewType}`);
-      if (activeBtn) {
-        activeBtn.className = 'p-2 rounded-lg text-indigo-400 bg-slate-800 shadow-inner transition';
-      }
-      render();
-    }
-
-    // Toggle Book Collected Status
-    function toggleCollected(id, event) {
-      if (event) event.stopPropagation();
-      const book = window.books.find(b => b.id === id);
-      if (book) {
-        book.collected = !book.collected;
-        if(book.collected) book.wishlist = false;
-        saveBooksState();
-        render();
-        showToast(book.collected ? `"${book.title}" დაემატა კოლექციას!` : `"${book.title}" ამოიღო კოლექციიდან`);
-      }
-    }
-
-    // Toggle Wishlist Status
-    function toggleWishlist(id, event) {
-      if (event) event.stopPropagation();
-      const book = window.books.find(b => b.id === id);
-      if (book) {
-        book.wishlist = !book.wishlist;
-        saveBooksState();
-        render();
-        showToast(book.wishlist ? `"${book.title}" დაემატა სურვილების სიას` : `"${book.title}" ამოიღო სურვილებიდან`);
-      }
-    }
-
-    // Filter books based on active tab & search keyword
-    function getFilteredBooks() {
-      const query = document.getElementById('searchInput').value.toLowerCase().trim();
-      return window.books.filter(book => {
-        const matchesQuery = book.title.toLowerCase().includes(query) || (book.notes && book.notes.toLowerCase().includes(query));
-        
-        if (!matchesQuery) return false;
-
-        if (currentFilter === 'collected') return book.collected;
-        if (currentFilter === 'missing') return !book.collected;
-        if (currentFilter === 'wishlist') return book.wishlist;
-        return true;
-      });
-    }
-
-    // Main Render Function
-    function render() {
-      const container = document.getElementById('booksContainer');
-      const filtered = getFilteredBooks();
-
-      if (filtered.length === 0) {
-        container.innerHTML = `
-          <div class="text-center py-16 bg-library-800/40 rounded-2xl border border-dashed border-slate-700">
-            <i class="fa-solid fa-book-open-reader text-4xl text-slate-600 mb-3"></i>
-            <h3 class="text-lg font-medium text-slate-300">წიგნები ვერ მოიძებნა</h3>
-            <p class="text-xs text-slate-500 mt-1">შეცვალეთ ძებნის ფილტრი ან დაამატეთ ახალი წიგნი</p>
-          </div>
-        `;
-        return;
-      }
-
-      if (currentView === 'grid') {
-        renderGrid(container, filtered);
-      } else if (currentView === 'list') {
-        renderList(container, filtered);
-      } else if (currentView === 'shelf') {
-        renderShelf(container, filtered);
-      }
-    }
-
-    // Helper: SVG Placeholder for missing cover art
-    function getPlaceholderCover(title, index) {
-      const colors = ['#312e81', '#1e3a8a', '#064e3b', '#4c1d95', '#701a75', '#831843'];
-      const bg = colors[index % colors.length];
-      return `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="420" viewBox="0 0 300 420"><rect width="300" height="420" fill="${encodeURIComponent(bg)}"/><text x="50%" y="45%" fill="%23ffffff" font-size="20" font-family="sans-serif" font-weight="bold" text-anchor="middle" dominant-baseline="middle">${encodeURIComponent(title)}</text><text x="50%" y="85%" fill="%2394a3b8" font-size="12" font-family="sans-serif" text-anchor="middle">წიგნი</text></svg>`;
-    }
-
-    // Drag and Drop Event Handlers
-    function handleDragStart(e, id) {
-      draggedBookId = id;
-      e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', id);
-      setTimeout(() => e.target.classList.add('dragging'), 0);
-    }
-
-    function handleDragEnd(e) {
-      e.target.classList.remove('dragging');
-      document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
-      draggedBookId = null;
-    }
-
-    function handleDragOver(e) {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = 'move';
-    }
-
-    function handleDragEnter(e) {
-      e.preventDefault();
-      const card = e.currentTarget;
-      if (card && draggedBookId) {
-        card.classList.add('drag-over');
-      }
-    }
-
-    function handleDragLeave(e) {
-      const card = e.currentTarget;
-      if (card) {
-        card.classList.remove('drag-over');
-      }
-    }
-
-    function handleDrop(e, targetId) {
-      e.preventDefault();
-      e.stopPropagation();
-      
-      const card = e.currentTarget;
-      if (card) {
-        card.classList.remove('drag-over');
-      }
-
-      if (!draggedBookId || draggedBookId === targetId) return;
-
-      const fromIndex = window.books.findIndex(b => b.id === draggedBookId);
-      const toIndex = window.books.findIndex(b => b.id === targetId);
-
-      if (fromIndex !== -1 && toIndex !== -1) {
-        const [movedBook] = window.books.splice(fromIndex, 1);
-        window.books.splice(toIndex, 0, movedBook);
-        saveBooksState();
-        render();
-      }
-    }
-
-    // Render Grid View (with customizable column count & copyable titles)
-    function renderGrid(container, items) {
-      const cols = window.settings.gridCols || 5;
-      
-      // Dynamic grid class based on settings
-      let gridColClass = 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5';
-      if (cols === 3) gridColClass = 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3';
-      if (cols === 4) gridColClass = 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4';
-      if (cols === 6) gridColClass = 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6';
-
-      let html = `<div class="grid ${gridColClass} gap-5">`;
-      
-      items.forEach((book, idx) => {
-        const coverSrc = book.image ? book.image : getPlaceholderCover(book.title, idx);
-        
-        html += `
-          <div class="book-card-container draggable-item" 
-            draggable="true" 
-            ondragstart="handleDragStart(event, '${book.id}')"
-            ondragend="handleDragEnd(event)"
-            ondragover="handleDragOver(event)"
-            ondragenter="handleDragEnter(event)"
-            ondragleave="handleDragLeave(event)"
-            ondrop="handleDrop(event, '${book.id}')">
             
-            <div class="book-card relative bg-library-800 border ${book.collected ? 'border-emerald-500/50 shadow-emerald-950/20' : 'border-slate-700/70'} rounded-2xl overflow-hidden flex flex-col justify-between h-full group">
-              
-              <!-- Drag Indicator Icon -->
-              <div class="absolute top-2 left-2 z-10 opacity-0 group-hover:opacity-80 transition bg-slate-900/80 p-1.5 rounded-lg text-slate-300 text-xs">
-                <i class="fa-solid fa-grip-lines"></i>
-              </div>
+            <h3 id="modalHeaderTitle" class="text-xl font-bold text-white mb-4">წიგნის რედაქტირება</h3>
+            
+            <form id="bookForm" onsubmit="handleBookFormSubmit(event)" class="space-y-4">
+                <input type="hidden" id="editBookId">
 
-              <!-- Card Cover Area -->
-              <div class="relative aspect-[3/4] bg-slate-900 overflow-hidden cursor-pointer" onclick="openLightbox('${coverSrc.replace(/'/g, "\\'")}', '${book.title.replace(/'/g, "\\'")}')">
-                <img src="${coverSrc}" alt="${book.title}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy">
-                
-                <!-- Collected Badge Overlay -->
-                ${book.collected ? `
-                  <div class="absolute top-2 right-2 bg-emerald-500 text-slate-950 text-xs font-black px-2 py-1 rounded-lg shadow-lg flex items-center gap-1">
-                    <i class="fa-solid fa-check"></i> შეგროვებულია
-                  </div>
-                ` : ''}
-
-                <!-- Wishlist Badge -->
-                ${book.wishlist && !book.collected ? `
-                  <div class="absolute top-2 right-2 bg-amber-500 text-slate-950 text-xs font-black px-2 py-1 rounded-lg shadow-lg flex items-center gap-1">
-                    <i class="fa-solid fa-bookmark"></i> სურვილი
-                  </div>
-                ` : ''}
-
-                <!-- Quick Action Overlay Buttons -->
-                <div class="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-2 p-2 backdrop-blur-[2px]" onclick="event.stopPropagation()">
-                  <button onclick="openEditModal('${book.id}')" title="რედაქტირება / ფოტოს ატვირთვა" class="w-10 h-10 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center shadow-lg transition transform hover:scale-110">
-                    <i class="fa-solid fa-pen-to-square"></i>
-                  </button>
-                  <button onclick="toggleWishlist('${book.id}', event)" title="სურვილებში დამატება" class="w-10 h-10 rounded-xl ${book.wishlist ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 hover:bg-slate-700 text-slate-200'} flex items-center justify-center shadow-lg transition transform hover:scale-110 border border-slate-600">
-                    <i class="fa-solid fa-star"></i>
-                  </button>
+                <!-- Volume & Status -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1">ტომის N#</label>
+                        <input type="number" id="formVolume" required min="1" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1">სტატუსი</label>
+                        <select id="formCollected" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                            <option value="true">შეგროვებულია 🟢</option>
+                            <option value="false">სურვილების სია ⚪</option>
+                        </select>
+                    </div>
                 </div>
-              </div>
 
-              <!-- Book Info & Checkbox Footer -->
-              <div class="p-3.5 flex flex-col justify-between flex-grow">
+                <!-- Title & Author -->
                 <div>
-                  <h4 class="font-bold text-sm text-slate-100 line-clamp-2 mb-1 group-hover:text-indigo-400 transition select-text cursor-text" title="${book.title}">${book.title}</h4>
-                  ${(window.settings.showNotes && book.notes) ? `<p class="text-xs text-slate-400 line-clamp-1 italic mb-2 select-text cursor-text"><i class="fa-regular fa-sticky-note mr-1 text-slate-500"></i>${book.notes}</p>` : ''}
+                    <label class="block text-xs font-medium text-slate-400 mb-1">წიგნის სათაური</label>
+                    <input type="text" id="formTitle" required class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
                 </div>
 
-                <div class="pt-2 border-t border-slate-700/60 flex items-center justify-between mt-2">
-                  <label class="flex items-center gap-2 cursor-pointer text-xs font-semibold select-none ${book.collected ? 'text-emerald-400' : 'text-slate-400'}">
-                    <input type="checkbox" ${book.collected ? 'checked' : ''} onchange="toggleCollected('${book.id}', event)" class="w-4 h-4 rounded text-emerald-600 bg-slate-900 border-slate-700 focus:ring-emerald-500 accent-emerald-500 cursor-pointer">
-                    <span>${book.collected ? 'შეგროვებულია' : 'შეგროვება'}</span>
-                  </label>
-
-                  <button onclick="deleteBook('${book.id}')" title="წაშლა" class="text-slate-500 hover:text-rose-400 text-xs p-1 transition">
-                    <i class="fa-regular fa-trash-can"></i>
-                  </button>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">ავტორი</label>
+                    <input type="text" id="formAuthor" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
                 </div>
-              </div>
 
+                <!-- 5-Star Rating (0.25 precision) -->
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-xs font-medium text-slate-400">შეფასება (0 - 5.0 ვარსკვლავი)</label>
+                        <span id="formRatingVal" class="text-sm font-bold text-amber-400">0.0 ★</span>
+                    </div>
+                    <input type="range" id="formRating" min="0" max="5" step="0.25" value="0" oninput="updateFormRatingPreview(this.value)" class="w-full accent-amber-400 bg-slate-800 cursor-pointer">
+                    
+                    <!-- Quick Rating Buttons -->
+                    <div class="flex items-center justify-between mt-2 gap-1 text-xs">
+                        <button type="button" onclick="setFormRatingVal(1.0)" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-1 rounded">1.0★</button>
+                        <button type="button" onclick="setFormRatingVal(2.5)" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-1 rounded">2.5★</button>
+                        <button type="button" onclick="setFormRatingVal(3.75)" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-1 rounded">3.75★</button>
+                        <button type="button" onclick="setFormRatingVal(4.5)" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-1 rounded">4.5★</button>
+                        <button type="button" onclick="setFormRatingVal(5.0)" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-1 rounded">5.0★</button>
+                    </div>
+                </div>
+
+                <!-- Genres Input & Chips -->
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">ჟანრები (გამოყავით მძიმით)</label>
+                    <input type="text" id="formGenres" placeholder="სამეცნიერო ფანტასტიკა, დისტოპია..." class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                    
+                    <!-- Quick Preset Genre Chips -->
+                    <div class="flex flex-wrap gap-1.5 mt-2">
+                        <span onclick="addQuickGenre('სამეცნიერო ფანტასტიკა')" class="cursor-pointer text-[10px] bg-slate-800 hover:bg-indigo-900/50 hover:text-indigo-300 text-slate-400 border border-slate-700 px-2 py-0.5 rounded-full transition">+ სამეცნიერო ფანტასტიკა</span>
+                        <span onclick="addQuickGenre('ფენტეზი')" class="cursor-pointer text-[10px] bg-slate-800 hover:bg-indigo-900/50 hover:text-indigo-300 text-slate-400 border border-slate-700 px-2 py-0.5 rounded-full transition">+ ფენტეზი</span>
+                        <span onclick="addQuickGenre('კიბერპანკი')" class="cursor-pointer text-[10px] bg-slate-800 hover:bg-indigo-900/50 hover:text-indigo-300 text-slate-400 border border-slate-700 px-2 py-0.5 rounded-full transition">+ კიბერპანკი</span>
+                        <span onclick="addQuickGenre('ჰორორი')" class="cursor-pointer text-[10px] bg-slate-800 hover:bg-indigo-900/50 hover:text-indigo-300 text-slate-400 border border-slate-700 px-2 py-0.5 rounded-full transition">+ ჰორორი</span>
+                        <span onclick="addQuickGenre('დისტოპია')" class="cursor-pointer text-[10px] bg-slate-800 hover:bg-indigo-900/50 hover:text-indigo-300 text-slate-400 border border-slate-700 px-2 py-0.5 rounded-full transition">+ დისტოპია</span>
+                        <span onclick="addQuickGenre('კლასიკა')" class="cursor-pointer text-[10px] bg-slate-800 hover:bg-indigo-900/50 hover:text-indigo-300 text-slate-400 border border-slate-700 px-2 py-0.5 rounded-full transition">+ კლასიკა</span>
+                    </div>
+                </div>
+
+                <!-- Description Field -->
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">წიგნის აღწერა / ანოტაცია</label>
+                    <textarea id="formDescription" rows="3" placeholder="მოკლე შინაარსი ან ანოტაცია..." class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"></textarea>
+                </div>
+
+                <!-- Personal Review Field -->
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">ჩემი შეფასება / რევიუ / შენიშვნა</label>
+                    <textarea id="formNotes" rows="2" placeholder="თქვენი პირადი შთაბეჭდილება წიგნზე..." class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"></textarea>
+                </div>
+
+                <!-- Cover Image URL / File Upload -->
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">ყდის სურათი (URL ან ფაილის ატვირთვა)</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="formCoverUrl" placeholder="https://..." class="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                        <label class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 px-3 py-2 rounded-xl text-xs font-medium cursor-pointer flex items-center shrink-0">
+                            <i class="fa-solid fa-image mr-1"></i> ატვირთვა
+                            <input type="file" id="formCoverFile" accept="image/*" class="hidden" onchange="handleImageCompress(event)">
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Image Preview -->
+                <div id="coverPreviewContainer" class="hidden flex justify-center py-2">
+                    <img id="coverPreviewImg" src="" alt="Preview" class="h-32 object-cover rounded-lg border border-slate-700 shadow-md">
+                </div>
+
+                <!-- Modal Actions -->
+                <div class="flex justify-end space-x-3 pt-4 border-t border-slate-800">
+                    <button type="button" onclick="closeBookModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-sm font-medium transition">გაუქმება</button>
+                    <button type="submit" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-medium transition shadow-lg shadow-indigo-600/30">შენახვა</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- BOOK PREVIEW DETAILS MODAL (👁️) -->
+    <div id="previewModal" class="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md hidden flex items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-2xl w-full p-6 shadow-2xl relative my-8">
+            <button onclick="closePreviewModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white p-2 text-xl">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <div id="previewModalContent">
+                <!-- Injected via JavaScript -->
             </div>
-          </div>
-        `;
-      });
+        </div>
+    </div>
 
-      html += `</div>`;
-      container.innerHTML = html;
-    }
+    <!-- SETTINGS MODAL (⚙️) -->
+    <div id="settingsModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm hidden flex items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl relative">
+            <button onclick="closeSettingsModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white p-2 text-lg">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <h3 class="text-xl font-bold text-white mb-4 flex items-center">
+                <i class="fa-solid fa-gear text-indigo-400 mr-2"></i> პარამეტრები
+            </h3>
 
-    // Render Compact List View
-    function renderList(container, items) {
-      let html = `
-        <div class="bg-library-800 rounded-2xl border border-slate-700 overflow-hidden shadow-xl">
-          <div class="divide-y divide-slate-700/80">
-      `;
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">მთავარი სათაური</label>
+                    <input type="text" id="settingAppTitle" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">ქვესათაური</label>
+                    <input type="text" id="settingAppSubtitle" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">ლოგოს ემოჯი / იკონი</label>
+                    <input type="text" id="settingAppLogo" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500">
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1">ბადის სვეტები (3-6)</label>
+                        <select id="settingGridCols" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white">
+                            <option value="3">3 სვეტი</option>
+                            <option value="4">4 სვეტი</option>
+                            <option value="5">5 სვეტი</option>
+                            <option value="6">6 სვეტი</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-400 mb-1">თაროზე წიგნები</label>
+                        <select id="settingShelfCount" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white">
+                            <option value="4">4 წიგნი</option>
+                            <option value="6">6 წიგნი</option>
+                            <option value="8">8 წიგნი</option>
+                            <option value="10">10 წიგნი</option>
+                        </select>
+                    </div>
+                </div>
 
-      items.forEach((book, idx) => {
-        const coverSrc = book.image ? book.image : getPlaceholderCover(book.title, idx);
+                <!-- Toggles -->
+                <div class="space-y-2 pt-2 border-t border-slate-800">
+                    <label class="flex items-center justify-between text-xs text-slate-300 cursor-pointer">
+                        <span>სტატისტიკის პანელი</span>
+                        <input type="checkbox" id="settingShowStats" class="rounded bg-slate-800 border-slate-700 text-indigo-600 focus:ring-0">
+                    </label>
+                    <label class="flex items-center justify-between text-xs text-slate-300 cursor-pointer">
+                        <span>ვარსკვლავებიანი შეფასებები</span>
+                        <input type="checkbox" id="settingShowRatings" class="rounded bg-slate-800 border-slate-700 text-indigo-600 focus:ring-0">
+                    </label>
+                    <label class="flex items-center justify-between text-xs text-slate-300 cursor-pointer">
+                        <span>ჟანრების თეგები</span>
+                        <input type="checkbox" id="settingShowGenres" class="rounded bg-slate-800 border-slate-700 text-indigo-600 focus:ring-0">
+                    </label>
+                </div>
 
-        html += `
-          <div class="p-3 sm:p-4 flex items-center justify-between gap-4 hover:bg-slate-800/60 transition draggable-item ${book.collected ? 'bg-emerald-950/10' : ''}"
-            draggable="true"
-            ondragstart="handleDragStart(event, '${book.id}')"
-            ondragend="handleDragEnd(event)"
-            ondragover="handleDragOver(event)"
-            ondragenter="handleDragEnter(event)"
-            ondragleave="handleDragLeave(event)"
-            ondrop="handleDrop(event, '${book.id}')">
-            
-            <div class="flex items-center gap-3 min-w-0">
-              <span class="text-slate-600 hover:text-slate-300 cursor-grab px-1"><i class="fa-solid fa-grip-vertical"></i></span>
-              <input type="checkbox" ${book.collected ? 'checked' : ''} onchange="toggleCollected('${book.id}', event)" class="w-5 h-5 rounded text-emerald-600 bg-slate-900 border-slate-700 accent-emerald-500 cursor-pointer flex-shrink-0">
-              
-              <img src="${coverSrc}" alt="" onclick="openLightbox('${coverSrc.replace(/'/g, "\\'")}', '${book.title.replace(/'/g, "\\'")}')" class="w-10 h-14 object-cover rounded-md border border-slate-700 cursor-pointer flex-shrink-0 hover:opacity-80 transition">
-              
-              <div class="min-w-0">
-                <h4 class="font-bold text-sm sm:text-base text-slate-100 truncate select-text cursor-text ${book.collected ? 'line-through text-slate-400' : ''}">${book.title}</h4>
-                ${(window.settings.showNotes && book.notes) ? `<p class="text-xs text-slate-400 truncate mt-0.5 select-text cursor-text"><i class="fa-regular fa-sticky-note mr-1 text-slate-500"></i>${book.notes}</p>` : ''}
-              </div>
+                <div class="pt-4 flex justify-end space-x-3 border-t border-slate-800">
+                    <button onclick="closeSettingsModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-sm">გაუქმება</button>
+                    <button onclick="saveSettings()" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-medium">შენახვა</button>
+                </div>
             </div>
+        </div>
+    </div>
 
-            <div class="flex items-center gap-2 flex-shrink-0">
-              <button onclick="toggleWishlist('${book.id}', event)" title="სურვილებში" class="p-2 rounded-lg ${book.wishlist ? 'text-amber-400 bg-amber-950/40 border border-amber-800/50' : 'text-slate-400 hover:text-amber-400'} transition">
-                <i class="fa-solid fa-star text-sm"></i>
-              </button>
-              <button onclick="openEditModal('${book.id}')" title="რედაქტირება" class="p-2 rounded-lg text-slate-400 hover:text-indigo-400 transition">
-                <i class="fa-solid fa-pen-to-square text-sm"></i>
-              </button>
-              <button onclick="deleteBook('${book.id}')" title="წაშლა" class="p-2 rounded-lg text-slate-500 hover:text-rose-400 transition">
-                <i class="fa-regular fa-trash-can text-sm"></i>
-              </button>
-            </div>
-          </div>
-        `;
-      });
+    <!-- MAIN JAVASCRIPT APPLICATION -->
+    <script>
+        // ----------------------------------------------------
+        // 1. FIREBASE CONFIGURATION & INITIALIZATION
+        // ----------------------------------------------------
+        const firebaseConfig = {
+            apiKey: "AIzaSyC9shM9IQVAj34nibQ893j5i5bDZJg5azQ",
+            authDomain: "biblioteka-62d11.firebaseapp.com",
+            projectId: "biblioteka-62d11",
+            storageBucket: "biblioteka-62d11.firebasestorage.app",
+            messagingSenderId: "823379511778",
+            appId: "1:823379511778:web:b2f2e4a57189ad059f91bb",
+            measurementId: "G-PRVCCF25PD"
+        };
 
-      html += `</div></div>`;
-      container.innerHTML = html;
-    }
+        let db = null;
+        let isOnlineSync = false;
 
-    // Render Shelf View (customizable books per shelf)
-    function renderShelf(container, items) {
-      let html = `<div class="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-2xl space-y-8">`;
-      
-      const shelfSize = window.settings.booksPerShelf || 8;
-      for (let i = 0; i < items.length; i += shelfSize) {
-        const shelfItems = items.slice(i, i + shelfSize);
-        
-        html += `<div class="relative">
-          <div class="flex items-end justify-start gap-3 sm:gap-6 px-4 pb-2 overflow-x-auto min-h-[160px]">`;
+        try {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
+            isOnlineSync = true;
+            updateSyncBadge(true, "🟢 ონლაინ სინქრონიზაცია აქტიურია");
+        } catch (e) {
+            console.warn("Firebase Init fallback to LocalStorage:", e);
+            updateSyncBadge(false, "🟡 ლოკალური რეჟიმი");
+        }
 
-        shelfItems.forEach((book, idx) => {
-          const coverSrc = book.image ? book.image : getPlaceholderCover(book.title, idx);
-          const heightClass = (idx % 3 === 0) ? 'h-36' : (idx % 2 === 0) ? 'h-40' : 'h-32';
-          
-          html += `
-            <div title="${book.title} (${book.collected ? 'შეგროვებულია' : 'აკლია'})" 
-              class="shelf-item cursor-pointer flex-shrink-0 relative group ${heightClass} w-20 sm:w-24 bg-library-800 rounded-md border-2 ${book.collected ? 'border-emerald-500 shadow-lg shadow-emerald-500/20' : 'border-slate-700 opacity-70 hover:opacity-100'} overflow-hidden transition-all duration-300">
-              <img src="${coverSrc}" class="w-full h-full object-cover" onclick="openEditModal('${book.id}')">
-              <div class="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-transparent to-transparent flex items-end p-1.5 pointer-events-none">
-                <span class="text-[10px] font-bold text-white line-clamp-1 leading-tight select-text cursor-text pointer-events-auto">${book.title}</span>
-              </div>
-            </div>
-          `;
+        function updateSyncBadge(online, text) {
+            const badge = document.getElementById('syncBadge');
+            const dot = document.getElementById('syncDot');
+            const txt = document.getElementById('syncText');
+            if (!badge || !dot || !txt) return;
+
+            txt.innerText = text;
+            if (online) {
+                dot.className = "w-2 h-2 rounded-full bg-emerald-500 mr-2";
+                badge.className = "flex items-center px-3 py-1 rounded-full text-xs font-medium bg-emerald-950/60 border border-emerald-800/60 text-emerald-300 shadow-inner";
+            } else {
+                dot.className = "w-2 h-2 rounded-full bg-amber-500 mr-2";
+                badge.className = "flex items-center px-3 py-1 rounded-full text-xs font-medium bg-amber-950/60 border border-amber-800/60 text-amber-300 shadow-inner";
+            }
+        }
+
+        // ----------------------------------------------------
+        // 2. DEFAULT 62 GEORGIAN BOOKS LIST
+        // ----------------------------------------------------
+        const defaultBooks = [
+            { id: "b1", volume: 1, title: "451° ფარენჰეიტი", author: "რეი ბრედბერი", collected: true, rating: 5.0, genres: ["სამეცნიერო ფანტასტიკა", "დისტოპია"], description: "მომავლის საზოგადოება სადაც წიგნების კითხვა აკრძალულია და მეხანძრეები მათ წვავენ.", notes: "გენიალური კლასიკა." },
+            { id: "b2", volume: 2, title: "1984", author: "ჯორჯ ორუელი", collected: true, rating: 5.0, genres: ["დისტოპია", "კლასიკა"], description: "ტოტალიტარული რეჟიმი და დიდი ძმა, რომელიც ყველაფერს აკონტროლებს.", notes: "აუცილებლად წასაკითხი." },
+            { id: "b3", volume: 3, title: "ცხოველების ფერმა", author: "ჯორჯ ორუელი", collected: true, rating: 4.75, genres: ["ალეგორია", "კლასიკა"], description: "ცხოველთა აჯანყება ფერმაში და ძალაუფლების რყვნილი ბუნება.", notes: "" },
+            { id: "b4", volume: 4, title: "საოცარი ახალი სამყარო", author: "ოლდოს ჰაქსლი", collected: true, rating: 4.5, genres: ["დისტოპია", "სამეცნიერო ფანტასტიკა"], description: "გენეტიკურად ინჟინერირებული საზოგადოება და ტექნოლოგიური ტოტალიტარიზმი.", notes: "" },
+            { id: "b5", volume: 5, title: "სოლარისი", author: "სტანისლავ ლემი", collected: true, rating: 4.75, genres: ["სამეცნიერო ფანტასტიკა", "მისტიკა"], description: "ამოუცნობი ცოცხალი ოკეანე პლანეტა სოლარისზე.", notes: "ღრმა ფილოსოფიური ნაწარმოები." },
+            { id: "b6", volume: 6, title: "დუნა", author: "ფრენკ ჰერბერტი", collected: true, rating: 5.0, genres: ["სამეცნიერო ფანტასტიკა", "ეპოსი"], description: "უდაბნოს პლანეტა არაკისი, სანელებელი და პოლ ატრეიდესის ისტორია.", notes: "ფანტასტიკის მწვერვალი." },
+            { id: "b7", volume: 7, title: "პიკნიკზე გზის პირას", author: "ძმები სტრუგაცკები", collected: true, rating: 4.5, genres: ["სამეცნიერო ფანტასტიკა", "სტალკერი"], description: "უცხოპლანეტელთა მიერ დატოვებული ზონა და სტალკერების რისკიანი ცხოვრება.", notes: "" },
+            { id: "b8", volume: 8, title: "ძნელია ღმერთობა", author: "ძმები სტრუგაცკები", collected: true, rating: 4.25, genres: ["სამეცნიერო ფანტასტიკა"], description: "დედამიწელი დამკვირვებელი შუასაუკუნეობრივ პლანეტაზე.", notes: "" },
+            { id: "b9", volume: 9, title: "მე, რობოტი", author: "აიზეკ აზიმოვი", collected: true, rating: 4.5, genres: ["სამეცნიერო ფანტასტიკა", "რობოტიკა"], description: "რობოტოტექნიკის სამი კანონი და ხელოვნური ინტელექტის ისტორიები.", notes: "" },
+            { id: "b10", volume: 10, title: "ფონდი", author: "აიზეკ აზიმოვი", collected: true, rating: 4.75, genres: ["სამეცნიერო ფანტასტიკა", "გალაქტიკური ეპოსი"], description: "ფსიქოისტორია და გალაქტიკური იმპერიის დაცემის პროგნოზირება.", notes: "" },
+            { id: "b11", volume: 11, title: "ვარსკვლავური ხომალდის მეომრები", author: "რობერტ ჰაინლაინი", collected: false, rating: 4.0, genres: ["სამეცნიერო ფანტასტიკა"], description: "", notes: "" },
+            { id: "b12", volume: 12, title: "სიბნელის მარცხენა ხელი", author: "ურსულა ლე გუინი", collected: true, rating: 4.5, genres: ["სამეცნიერო ფანტასტიკა"], description: "", notes: "" },
+            { id: "b13", volume: 13, title: "ზღვისურეთის ჯადოქარი", author: "ურსულა ლე გუინი", collected: true, rating: 4.75, genres: ["ფენტეზი"], description: "გედის თავგადასავალი და ჯადოქრობის ხელოვნება ზღვისურეთში.", notes: "" },
+            { id: "b14", volume: 14, title: "ჰიპერიონი", author: "დენ სიმონსი", collected: true, rating: 5.0, genres: ["სამეცნიერო ფანტასტიკა", "ეპოსი"], description: "შვიდი მომლოცველის მოგზაურობა აკრძალულ პლანეტა ჰიპერიონზე.", notes: "შედევრი!" },
+            { id: "b15", volume: 15, title: "ავტოსტოპით გალაქტიკაში", author: "დაგლას ადამსი", collected: true, rating: 4.75, genres: ["იუმორი", "სამეცნიერო ფანტასტიკა"], description: "პასუხი სამყაროსა და ყველაფრის შესახებ არის 42.", notes: "ძალიან სასაცილო." },
+            { id: "b16", volume: 16, title: "ყასბების სასაკლაო N5", author: "კურტ ვონეგუტი", collected: true, rating: 4.25, genres: ["სამეცნიერო ფანტასტიკა", "სატირა"], description: "ბილი პილგრიმი და დრეზდენის დაბომბვა.", notes: "" },
+            { id: "b17", volume: 17, title: "კატის აკვანი", author: "კურტ ვონეგუტი", collected: false, rating: 4.0, genres: ["სატირა"], description: "", notes: "" },
+            { id: "b18", volume: 18, title: "ნეირომანტი", author: "უილიამ გიბსონი", collected: true, rating: 4.5, genres: ["კიბერპანკი"], description: "კიბერსივრცე, ჰაკერები და ხელოვნური ინტელექტი.", notes: "კიბერპანკის ფუძემდებელი." },
+            { id: "b19", volume: 19, title: "ანდროიდებს ელექტრონული ცხვრები ესიზმრებათ?", author: "ფილიპ კ. დიკი", collected: true, rating: 4.75, genres: ["კიბერპანკი", "სამეცნიერო ფანტასტიკა"], description: "რიკ დეკარდი და რეპლიკანტებზე ნადირობა.", notes: "Blade Runner-ის წყარო." },
+            { id: "b20", volume: 20, title: "მაღალ კოშკში მცხოვრები კაცი", author: "ფილიპ კ. დიკი", collected: false, rating: 3.75, genres: ["ალტერნატიული ისტორია"], description: "", notes: "" },
+            { id: "b21", volume: 21, title: "უბიკი", author: "ფილიპ კ. დიკი", collected: true, rating: 4.25, genres: ["სამეცნიერო ფანტასტიკა"], description: "", notes: "" },
+            { id: "b22", volume: 22, title: "ჰობიტი", author: "ჯ.რ.რ. ტოლკინი", collected: true, rating: 5.0, genres: ["ფენტეზი"], description: "ბილბო ბეგინსის მოგზაურობა დრაკონ სმოგთან.", notes: "" },
+            { id: "b23", volume: 23, title: "ბეჭდის საძმო", author: "ჯ.რ.რ. ტოლკინი", collected: true, rating: 5.0, genres: ["ფენტეზი", "ეპოსი"], description: "შუახმელეთი და ბეჭდის განადგურების მისია.", notes: "" },
+            { id: "b24", volume: 24, title: "ორი კოშკი", author: "ჯ.რ.რ. ტოლკინი", collected: true, rating: 5.0, genres: ["ფენტეზი"], description: "საძმოს გაყოფა და ბრძოლა ჰორნბურგთან.", notes: "" },
+            { id: "b25", volume: 25, title: "მეფის დაბრუნება", author: "ჯ.რ.რ. ტოლკინი", collected: true, rating: 5.0, genres: ["ფენტეზი"], description: "საბოლოო ბრძოლა მორდორთან და არაგორნის გამეფება.", notes: "" },
+            { id: "b26", volume: 26, title: "მარსიელების ქრონიკები", author: "რეი ბრედბერი", collected: true, rating: 4.5, genres: ["სამეცნიერო ფანტასტიკა"], description: "ადამიანთა მიერ მარსის კოლონიზაციის პოეტური ისტორია.", notes: "" },
+            { id: "b27", volume: 27, title: "სინდისის ქენჯნა", author: "ძმები სტრუგაცკები", collected: false, rating: 0, genres: ["სამეცნიერო ფანტასტიკა"], description: "", notes: "" },
+            { id: "b28", volume: 28, title: "უცხო უცხო ქვეყანაში", author: "რობერტ ჰაინლაინი", collected: true, rating: 4.0, genres: ["სამეცნიერო ფანტასტიკა"], description: "", notes: "" },
+            { id: "b29", volume: 29, title: "დრაკონის ფრენა", author: "ენ მაკკაფრი", collected: false, rating: 0, genres: ["ფენტეზი"], description: "", notes: "" },
+            { id: "b30", volume: 30, title: "მარადისობის დასასრული", author: "აიზეკ აზიმოვი", collected: true, rating: 4.75, genres: ["დროში მოგზაურობა"], description: "ორგანიზაცია მარადისობა და დროით მანიპულირება.", notes: "" },
+            { id: "b31", volume: 31, title: "მზის სისტემის დაცემა", author: "არტურ კლარკი", collected: false, rating: 0, genres: ["სამეცნიერო ფანტასტიკა"], description: "", notes: "" },
+            { id: "b32", volume: 32, title: "2001: კოსმოსური ოდისეა", author: "არტურ კლარკი", collected: true, rating: 4.75, genres: ["სამეცნიერო ფანტასტიკა"], description: "შავი მონოლითი, იუპიტერი და HAL 9000.", notes: "" },
+            { id: "b33", volume: 33, title: "შეხვედრა რამასთან", author: "არტურ კლარკი", collected: true, rating: 4.5, genres: ["სამეცნიერო ფანტასტიკა"], description: "უცნობი ცილინდრული ხომალდი მზის სისტემაში.", notes: "" },
+            { id: "b34", volume: 34, title: "ვარსკვლავური მტვერი", author: "ნილ გეიმანი", collected: false, rating: 4.25, genres: ["ფენტეზი"], description: "", notes: "" },
+            { id: "b35", volume: 35, title: "ამერიკელი ღმერთები", author: "ნილ გეიმანი", collected: true, rating: 4.5, genres: ["მისტიკა", "ფენტეზი"], description: "ძველი და ახალი ღმერთების დაპირისპირება ამერიკაში.", notes: "" },
+            { id: "b36", volume: 36, title: "საფლავის წიგნი", author: "ნილ გეიმანი", collected: true, rating: 4.0, genres: ["ფენტეზი"], description: "", notes: "" },
+            { id: "b37", volume: 37, title: "ქარის სახელი", author: "პატრიკ როთფუსი", collected: true, rating: 5.0, genres: ["ფენტეზი"], description: "ქუოუთის ახალგაზრდობა და მაგისტრატურა.", notes: "საოცარი ენა!" },
+            { id: "b38", volume: 38, title: "ბრძენკაცის შიში", author: "პატრიკ როთფუსი", collected: true, rating: 4.75, genres: ["ფენტეზი"], description: "", notes: "" },
+            { id: "b39", volume: 39, title: "სამი სხეულის პრობლემა", author: "ლიუ ცისინი", collected: true, rating: 5.0, genres: ["სამეცნიერო ფანტასტიკა"], description: "ჩინეთის კულტურული რევოლუცია და კონტაქტი ტრისოლარისთან.", notes: "გენიალური სამეცნიერო ფანტასტიკა!" },
+            { id: "b40", volume: 40, title: "ბნელი ტყე", author: "ლიუ ცისინი", collected: true, rating: 5.0, genres: ["სამეცნიერო ფანტასტიკა"], description: "სამყარო როგორც ბნელი ტყე და კედლისმცველები.", notes: "" },
+            { id: "b41", volume: 41, title: "სიკვდილის მარადიული სასასრული", author: "ლიუ ცისინი", collected: true, rating: 4.75, genres: ["სამეცნიერო ფანტასტიკა"], description: "სამყაროს განზომილებები და საბოლოო ბედი.", notes: "" },
+            { id: "b42", volume: 42, title: "გზა", author: "კორმაკ მაკკარტი", collected: true, rating: 4.5, genres: ["პოსტაპოკალიპტიკა"], description: "მამისა და შვილის მოგზაურობა განადგურებულ მსოფლიოში.", notes: "ძალიან ემოციური." },
+            { id: "b43", volume: 43, title: "მეტრო 2033", author: "დიმიტრი გლუხოვსკი", collected: true, rating: 4.5, genres: ["პოსტაპოკალიპტიკა"], description: "მოსკოვის მეტრო ბირთვული ომის შემდეგ.", notes: "" },
+            { id: "b44", volume: 44, title: "ფოლადის გამოქვაბულები", author: "აიზეკ აზიმოვი", collected: false, rating: 0, genres: ["სამეცნიერო ფანტასტიკა"], description: "", notes: "" },
+            { id: "b45", volume: 45, title: "შიშველი მზე", author: "აიზეკ აზიმოვი", collected: false, rating: 0, genres: ["სამეცნიერო ფანტასტიკა"], description: "", notes: "" },
+            { id: "b46", volume: 46, title: "ჩრდილოეთის ნათება", author: "ფილიპ პულმანი", collected: true, rating: 4.5, genres: ["ფენტეზი"], description: "ლირა ბელაკვა და მისი დემონი ალეთიომეტრით.", notes: "" },
+            { id: "b47", volume: 47, title: "სასწაულმოქმედი დანა", author: "ფილიპ პულმანი", collected: true, rating: 4.25, genres: ["ფენტეზი"], description: "", notes: "" },
+            { id: "b48", volume: 48, title: "ქარვისებრი ტელესკოპი", author: "ფილიპ პულმანი", collected: true, rating: 4.25, genres: ["ფენტეზი"], description: "", notes: "" },
+            { id: "b49", volume: 49, title: "სიბნელის მარცხენა ხელი II", author: "ურსულა ლე გუინი", collected: false, rating: 0, genres: ["სამეცნიერო ფანტასტიკა"], description: "", notes: "" },
+            { id: "b50", volume: 50, title: "ატლანტმა მხრები გაშალა", author: "აინ რენდი", collected: true, rating: 4.0, genres: ["დისტოპია"], description: "ჯონ გოლტი და ინდივიდუალიზმის ფილოსოფია.", notes: "" },
+            { id: "b51", volume: 51, title: "წყარო", author: "აინ რენდი", collected: true, rating: 4.25, genres: ["ფილოსოფია"], description: "", notes: "" },
+            { id: "b52", volume: 52, title: "ფრანკენშტაინი", author: "მერი შელი", collected: true, rating: 4.0, genres: ["ჰორორი", "კლასიკა"], description: "ვიქტორ ფრანკენშტაინი და მისი ურჩხული.", notes: "სამეცნიერო ფანტასტიკის საწყისი." },
+            { id: "b53", volume: 53, title: "დრაკულა", author: "ბრემ სტოკერი", collected: true, rating: 4.25, genres: ["ჰორორი", "კლასიკა"], description: "გრაფი დრაკულა და ვან ჰელსინგი.", notes: "" },
+            { id: "b54", volume: 54, title: "ქთულჰუს ძახილი", author: "ჰ.ფ. ლავკრაფტი", collected: true, rating: 4.5, genres: ["ჰორორი", "მისტიკა"], description: "კოსმიური ჰორორი და ძველი ღმერთები.", notes: "" },
+            { id: "b55", volume: 55, title: "ქარიშხლის წინაშე", author: "ბრენდონ სანდერსონი", collected: true, rating: 5.0, genres: ["ფენტეზი", "ეპოსი"], description: "როშარი, შტორმები და სინათლისმცველები.", notes: "გენიალური სამყარო!" },
+            { id: "b56", volume: 56, title: "მეფეთა სიტყვები", author: "ბრენდონ სანდერსონი", collected: true, rating: 5.0, genres: ["ფენტეზი"], description: "კალადინი, შალანი და დალინარი.", notes: "" },
+            { id: "b57", volume: 57, title: "ფიცისმცველი", author: "ბრენდონ სანდერსონი", collected: true, rating: 4.75, genres: ["ფენტეზი"], description: "", notes: "" },
+            { id: "b58", volume: 58, title: "რითმების ომი", author: "ბრენდონ სანდერსონი", collected: true, rating: 4.75, genres: ["ფენტეზი"], description: "", notes: "" },
+            { id: "b59", volume: 59, title: "ფერფლის დაბადება", author: "ბრენდონ სანდერსონი", collected: true, rating: 4.75, genres: ["ფენტეზი"], description: "ვინ და კელსიერი ალუმანტიაში.", notes: "" },
+            { id: "b60", volume: 60, title: "ამაღლების ამბავი", author: "ბრენდონ სანდერსონი", collected: true, rating: 4.5, genres: ["ფენტეზი"], description: "", notes: "" },
+            { id: "b61", volume: 61, title: "საუკუნეების გმირი", author: "ბრენდონ სანდერსონი", collected: true, rating: 4.75, genres: ["ფენტეზი"], description: "", notes: "" },
+            { id: "b62", volume: 62, title: "მარტივი სიმართლე", author: "არტურ კლარკი", collected: false, rating: 0, genres: ["სამეცნიერო ფანტასტიკა"], description: "", notes: "" }
+        ];
+
+        // ----------------------------------------------------
+        // 3. GLOBAL APP STATE
+        // ----------------------------------------------------
+        let books = [];
+        let currentFilter = 'all';
+        let currentViewMode = localStorage.getItem('fb_view_mode') || 'grid';
+        let appSettings = {
+            appTitle: "ფანტასტიკური ბიბლიოთეკა",
+            appSubtitle: "პირადი კოლექციის მართვა & სინქრონიზაცია",
+            appLogo: "🚀",
+            gridCols: 4,
+            shelfCount: 6,
+            showStats: true,
+            showRatings: true,
+            showGenres: true
+        };
+
+        // ----------------------------------------------------
+        // 4. INIT APP & LISTENERS
+        // ----------------------------------------------------
+        window.addEventListener('DOMContentLoaded', () => {
+            loadSettings();
+            initDataSync();
         });
 
-        html += `</div>
-          <!-- Wooden Shelf Board -->
-          <div class="h-4 bg-gradient-to-r from-amber-900 via-amber-800 to-amber-950 rounded-lg shadow-md border-t border-amber-700/50"></div>
-        </div>`;
-      }
-
-      html += `</div>`;
-      container.innerHTML = html;
-    }
-
-    // Book Edit & Add Modal Operations
-    function openEditModal(bookId) {
-      const book = window.books.find(b => b.id === bookId);
-      if (!book) return;
-
-      document.getElementById('modalTitle').innerText = 'წიგნის რედაქტირება';
-      document.getElementById('modalBookId').value = book.id;
-      document.getElementById('modalInputTitle').value = book.title;
-      document.getElementById('modalInputImageUrl').value = book.image || '';
-      document.getElementById('modalInputNotes').value = book.notes || '';
-      document.getElementById('modalInputCollected').checked = book.collected;
-      document.getElementById('modalInputWishlist').checked = book.wishlist;
-
-      uploadedImageData = book.image || null;
-      updateImagePreview(uploadedImageData);
-
-      document.getElementById('bookModal').classList.remove('hidden');
-    }
-
-    function openAddBookModal() {
-      document.getElementById('modalTitle').innerText = 'ახალი წიგნის დამატება';
-      document.getElementById('modalBookId').value = '';
-      document.getElementById('modalInputTitle').value = '';
-      document.getElementById('modalInputImageUrl').value = '';
-      document.getElementById('modalInputNotes').value = '';
-      document.getElementById('modalInputCollected').checked = false;
-      document.getElementById('modalInputWishlist').checked = false;
-
-      uploadedImageData = null;
-      updateImagePreview(null);
-
-      document.getElementById('bookModal').classList.remove('hidden');
-    }
-
-    function closeModal() {
-      document.getElementById('bookModal').classList.add('hidden');
-    }
-
-    // Google Image Search Shortcut Helper
-    function triggerGoogleSearch() {
-      const title = document.getElementById('modalInputTitle').value.trim();
-      if (!title) {
-        showToast('გთხოვთ ჯერ მიუთითოთ წიგნის სათაური', false);
-        return;
-      }
-      const query = encodeURIComponent(`${title} წიგნი ყდა`);
-      window.open(`https://www.google.com/search?tbm=isch&q=${query}`, '_blank');
-    }
-
-    // Handle Image Upload File Input
-    function handleFileUpload(e) {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      if (file.size > 2 * 1024 * 1024) {
-        showToast('ფაილის ზომა არ უნდა აღემატებოდეს 2MB-ს', false);
-        return;
-      }
-
-      const reader = new FileReader();
-      reader.onload = function(evt) {
-        uploadedImageData = evt.target.result;
-        updateImagePreview(uploadedImageData);
-        document.getElementById('modalInputImageUrl').value = '';
-      };
-      reader.readAsDataURL(file);
-    }
-
-    function updateImagePreview(src) {
-      const previewContainer = document.getElementById('imagePreviewContainer');
-      const previewImg = document.getElementById('imagePreview');
-
-      if (src) {
-        previewImg.src = src;
-        previewContainer.classList.remove('hidden');
-      } else {
-        previewContainer.classList.add('hidden');
-      }
-    }
-
-    // Save Modal Data
-    function saveModalData(e) {
-      e.preventDefault();
-
-      const id = document.getElementById('modalBookId').value;
-      const title = document.getElementById('modalInputTitle').value.trim();
-      const urlInput = document.getElementById('modalInputImageUrl').value.trim();
-      const notes = document.getElementById('modalInputNotes').value.trim();
-      const collected = document.getElementById('modalInputCollected').checked;
-      const wishlist = document.getElementById('modalInputWishlist').checked;
-
-      const finalImage = urlInput ? urlInput : uploadedImageData || '';
-
-      if (id) {
-        // Edit existing
-        const book = window.books.find(b => b.id === id);
-        if (book) {
-          book.title = title;
-          book.image = finalImage;
-          book.notes = notes;
-          book.collected = collected;
-          book.wishlist = wishlist;
+        function loadSettings() {
+            const saved = localStorage.getItem('fb_settings');
+            if (saved) {
+                try {
+                    appSettings = { ...appSettings, ...JSON.parse(saved) };
+                } catch(e) {}
+            }
+            applySettingsToUI();
         }
-      } else {
-        // Add new book
-        const newBook = {
-          id: 'book_' + Date.now(),
-          title: title,
-          collected: collected,
-          wishlist: wishlist,
-          image: finalImage,
-          notes: notes
-        };
-        window.books.unshift(newBook);
-      }
 
-      saveBooksState();
-      render();
-      closeModal();
-      showToast('წიგნი წარმატებით შენახულია!');
-    }
-
-    // Delete Book
-    function deleteBook(id) {
-      const book = window.books.find(b => b.id === id);
-      if (!book) return;
-
-      if (confirm(`ნამდვილად გსურთ წაშალოთ "${book.title}"?`)) {
-        window.books = window.books.filter(b => b.id !== id);
-        saveBooksState();
-        render();
-        showToast('წიგნი წაშლილია');
-      }
-    }
-
-    // Lightbox Modal
-    function openLightbox(imgSrc, title) {
-      document.getElementById('lightboxImage').src = imgSrc;
-      document.getElementById('lightboxTitle').innerText = title;
-      document.getElementById('lightboxModal').classList.remove('hidden');
-    }
-
-    function closeLightbox() {
-      document.getElementById('lightboxModal').classList.add('hidden');
-    }
-
-    // Export / Backup JSON Data
-    function exportData() {
-      const backupObject = {
-        books: window.books,
-        settings: window.settings,
-        exportedAt: new Date().toISOString()
-      };
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupObject, null, 2));
-      const downloadAnchor = document.createElement('a');
-      downloadAnchor.setAttribute("href", dataStr);
-      downloadAnchor.setAttribute("download", `library_backup_${new Date().toISOString().slice(0,10)}.json`);
-      document.body.appendChild(downloadAnchor);
-      downloadAnchor.click();
-      downloadAnchor.remove();
-      showToast('მონაცემების ბექაპი ჩამოტვირთულია!');
-    }
-
-    // Import JSON Data
-    function importData(e) {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = function(evt) {
-        try {
-          const imported = JSON.parse(evt.target.result);
-          if (Array.isArray(imported)) {
-            window.books = imported;
-          } else if (imported && Array.isArray(imported.books)) {
-            window.books = imported.books;
-            if (imported.settings) window.settings = { ...DEFAULT_SETTINGS, ...imported.settings };
-          } else {
-            showToast('არასწორი ფაილის ფორმატი', false);
-            return;
-          }
-          saveBooksState();
-          saveSettingsState();
-          render();
-          showToast('მონაცემები წარმატებით იმპორტირებულია!');
-        } catch(err) {
-          showToast('შეცდომა ფაილის წაკითხვისას', false);
+        function applySettingsToUI() {
+            document.getElementById('appTitleText').innerText = appSettings.appTitle;
+            document.getElementById('appSubtitleText').innerText = appSettings.appSubtitle;
+            document.getElementById('appLogoIcon').innerText = appSettings.appLogo;
+            
+            const statsSec = document.getElementById('statsSection');
+            if (statsSec) {
+                statsSec.style.display = appSettings.showStats ? 'grid' : 'none';
+            }
         }
-      };
-      reader.readAsText(file);
-    }
 
-    // Reset Prompt
-    function resetCollectionPrompt() {
-      if (confirm('ნამდვილად გსურთ კოლექციის საწყის მდგომარეობაზე დაბრუნება?')) {
-        localStorage.removeItem(BOOKS_STORAGE_KEY);
-        localStorage.removeItem(SETTINGS_STORAGE_KEY);
-        window.settings = { ...DEFAULT_SETTINGS };
-        initDefaultBooks();
-        applySettingsUI();
-        render();
-        showToast('კოლექცია გადატვირთულია საწყისზე');
-      }
-    }
-  </script>
+        function saveSettings() {
+            appSettings.appTitle = document.getElementById('settingAppTitle').value.trim() || "ფანტასტიკური ბიბლიოთეკა";
+            appSettings.appSubtitle = document.getElementById('settingAppSubtitle').value.trim() || "პირადი კოლექცია";
+            appSettings.appLogo = document.getElementById('settingAppLogo').value.trim() || "🚀";
+            appSettings.gridCols = parseInt(document.getElementById('settingGridCols').value) || 4;
+            appSettings.shelfCount = parseInt(document.getElementById('settingShelfCount').value) || 6;
+            appSettings.showStats = document.getElementById('settingShowStats').checked;
+            appSettings.showRatings = document.getElementById('settingShowRatings').checked;
+            appSettings.showGenres = document.getElementById('settingShowGenres').checked;
+
+            localStorage.setItem('fb_settings', JSON.stringify(appSettings));
+            applySettingsToUI();
+            closeSettingsModal();
+            renderBooks();
+        }
+
+        function openSettingsModal() {
+            document.getElementById('settingAppTitle').value = appSettings.appTitle;
+            document.getElementById('settingAppSubtitle').value = appSettings.appSubtitle;
+            document.getElementById('settingAppLogo').value = appSettings.appLogo;
+            document.getElementById('settingGridCols').value = appSettings.gridCols;
+            document.getElementById('settingShelfCount').value = appSettings.shelfCount;
+            document.getElementById('settingShowStats').checked = appSettings.showStats;
+            document.getElementById('settingShowRatings').checked = appSettings.showRatings;
+            document.getElementById('settingShowGenres').checked = appSettings.showGenres;
+
+            document.getElementById('settingsModal').classList.remove('hidden');
+        }
+
+        function closeSettingsModal() {
+            document.getElementById('settingsModal').classList.add('hidden');
+        }
+
+        // ----------------------------------------------------
+        // 5. DATA SYNC (FIRESTORE + LOCALSTORAGE FALLBACK)
+        // ----------------------------------------------------
+        function initDataSync() {
+            const localData = localStorage.getItem('fb_books_data');
+            if (localData) {
+                try { books = JSON.parse(localData); } catch(e){}
+            }
+
+            if (isOnlineSync && db) {
+                db.collection('library').doc('main_collection').onSnapshot((doc) => {
+                    if (doc.exists && doc.data().books) {
+                        books = doc.data().books;
+                        localStorage.setItem('fb_books_data', JSON.stringify(books));
+                        updateGenreDropdown();
+                        renderBooks();
+                        updateStats();
+                        updateSyncBadge(true, "🟢 ონლაინ სინქრონიზაცია აქტიურია");
+                    } else {
+                        // First time setup on Firestore
+                        if (books.length === 0) books = defaultBooks;
+                        saveBooksData();
+                    }
+                }, (error) => {
+                    console.error("Firestore listener error:", error);
+                    updateSyncBadge(false, "🟡 ლოკალური რეჟიმი (ოფლაინ)");
+                    if (books.length === 0) books = defaultBooks;
+                    updateGenreDropdown();
+                    renderBooks();
+                    updateStats();
+                });
+            } else {
+                if (books.length === 0) books = defaultBooks;
+                updateGenreDropdown();
+                renderBooks();
+                updateStats();
+            }
+        }
+
+        function saveBooksData() {
+            // Save Local
+            localStorage.setItem('fb_books_data', JSON.stringify(books));
+            updateStats();
+            updateGenreDropdown();
+
+            // Save Cloud
+            if (isOnlineSync && db) {
+                db.collection('library').doc('main_collection').set({
+                    books: books,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                }).catch(err => {
+                    console.error("Cloud save failed:", err);
+                    updateSyncBadge(false, "🟡 ლოკალური რეჟიმი");
+                });
+            }
+        }
+
+        // ----------------------------------------------------
+        // 6. RATING RENDERER (0.25 PRECISION SVG STARS)
+        // ----------------------------------------------------
+        function renderStarRatingSVG(rating, sizeClass = "w-3.5 h-3.5") {
+            rating = Math.max(0, Math.min(5, parseFloat(rating) || 0));
+            let html = '<div class="flex items-center space-x-0.5 text-amber-400">';
+            
+            for (let i = 1; i <= 5; i++) {
+                let fillPct = 0;
+                if (rating >= i) {
+                    fillPct = 100;
+                } else if (rating > i - 1) {
+                    fillPct = Math.round((rating - (i - 1)) * 100);
+                }
+
+                const gradId = `starGrad_${Math.random().toString(36).substr(2, 7)}`;
+
+                html += `
+                <svg class="${sizeClass} shrink-0" viewBox="0 0 24 24">
+                    <defs>
+                        <linearGradient id="${gradId}">
+                            <stop offset="${fillPct}%" stop-color="#F59E0B" />
+                            <stop offset="${fillPct}%" stop-color="#475569" />
+                        </linearGradient>
+                    </defs>
+                    <path fill="url(#${gradId})" d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>`;
+            }
+            html += `<span class="text-[11px] font-bold text-amber-400 ml-1.5">${rating.toFixed(2).replace(/\.00$/, '.0')}</span></div>`;
+            return html;
+        }
+
+        // ----------------------------------------------------
+        // 7. RENDER BOOKS (GRID & LIST & SHELVES)
+        // ----------------------------------------------------
+        function setFilter(filter) {
+            currentFilter = filter;
+            ['all', 'collected', 'wishlist', 'rated'].forEach(f => {
+                const btn = document.getElementById(`filterBtn-${f}`);
+                if (btn) {
+                    if (f === filter) {
+                        btn.className = "px-3 py-1.5 rounded-lg transition text-white bg-indigo-600 shadow";
+                    } else {
+                        btn.className = "px-3 py-1.5 rounded-lg text-slate-400 hover:text-white transition";
+                    }
+                }
+            });
+            renderBooks();
+        }
+
+        function setViewMode(mode) {
+            currentViewMode = mode;
+            localStorage.setItem('fb_view_mode', mode);
+            document.getElementById('viewBtnGrid').className = mode === 'grid' ? "p-1.5 text-indigo-400 rounded-lg bg-slate-800 border border-slate-700" : "p-1.5 text-slate-400 rounded-lg hover:bg-slate-800 transition";
+            document.getElementById('viewBtnList').className = mode === 'list' ? "p-1.5 text-indigo-400 rounded-lg bg-slate-800 border border-slate-700" : "p-1.5 text-slate-400 rounded-lg hover:bg-slate-800 transition";
+            renderBooks();
+        }
+
+        function updateGenreDropdown() {
+            const select = document.getElementById('genreFilter');
+            if (!select) return;
+            const currentVal = select.value;
+            
+            const genreSet = new Set();
+            books.forEach(b => {
+                if (Array.isArray(b.genres)) {
+                    b.genres.forEach(g => genreSet.add(g.trim()));
+                }
+            });
+
+            let optionsHtml = '<option value="all">ყველა ჟანრი</option>';
+            Array.from(genreSet).sort().forEach(g => {
+                if (g) optionsHtml += `<option value="${g}">${g}</option>`;
+            });
+            select.innerHTML = optionsHtml;
+            select.value = currentVal;
+        }
+
+        function renderBooks() {
+            const container = document.getElementById('booksContainer');
+            if (!container) return;
+
+            const searchQuery = (document.getElementById('searchInput')?.value || '').toLowerCase();
+            const genreQuery = document.getElementById('genreFilter')?.value || 'all';
+            const sortVal = document.getElementById('sortSelect')?.value || 'order';
+
+            // Filter
+            let filtered = books.filter(b => {
+                // Status Filter
+                if (currentFilter === 'collected' && !b.collected) return false;
+                if (currentFilter === 'wishlist' && b.collected) return false;
+                if (currentFilter === 'rated' && (!b.rating || b.rating <= 0)) return false;
+
+                // Genre Filter
+                if (genreQuery !== 'all') {
+                    if (!b.genres || !b.genres.includes(genreQuery)) return false;
+                }
+
+                // Search Filter
+                if (searchQuery) {
+                    const matchTitle = b.title.toLowerCase().includes(searchQuery);
+                    const matchAuthor = (b.author || '').toLowerCase().includes(searchQuery);
+                    const matchVol = b.volume.toString() === searchQuery;
+                    if (!matchTitle && !matchAuthor && !matchVol) return false;
+                }
+                return true;
+            });
+
+            // Sort
+            filtered.sort((a, b) => {
+                if (sortVal === 'ratingDesc') return (b.rating || 0) - (a.rating || 0);
+                if (sortVal === 'ratingAsc') return (a.rating || 0) - (b.rating || 0);
+                if (sortVal === 'title') return a.title.localeCompare(b.title, 'ka');
+                if (sortVal === 'author') return (a.author || '').localeCompare(b.author || '', 'ka');
+                return (a.volume || 0) - (b.volume || 0);
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                <div class="text-center py-16 bg-slate-800/40 border border-dashed border-slate-700 rounded-2xl">
+                    <i class="fa-solid fa-book-open text-4xl text-slate-600 mb-3"></i>
+                    <p class="text-slate-400 font-medium">წიგნები ვერ მოიძებნა</p>
+                    <p class="text-xs text-slate-500 mt-1">შეცვალეთ ძიების ფილტრები ან დაამატეთ ახალი წიგნი</p>
+                </div>`;
+                return;
+            }
+
+            if (currentViewMode === 'list') {
+                renderListView(container, filtered);
+            } else {
+                renderGridView(container, filtered);
+            }
+        }
+
+        function renderGridView(container, filteredBooks) {
+            const cols = appSettings.gridCols || 4;
+            const gridClass = {
+                3: 'grid-cols-2 sm:grid-cols-3',
+                4: 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4',
+                5: 'grid-cols-2 sm:grid-cols-3 md:grid-cols-5',
+                6: 'grid-cols-2 sm:grid-cols-4 md:grid-cols-6'
+            }[cols] || 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4';
+
+            let html = `<div class="grid ${gridClass} gap-5">`;
+
+            filteredBooks.forEach(b => {
+                const cover = b.cover || `https://placehold.co/300x450/1e293b/64748b?text=Vol+${b.volume}`;
+                const ratingBadge = appSettings.showRatings && b.rating > 0 ? renderStarRatingSVG(b.rating) : '';
+                
+                let genreBadges = '';
+                if (appSettings.showGenres && Array.isArray(b.genres) && b.genres.length > 0) {
+                    genreBadges = b.genres.slice(0, 2).map(g => `<span class="bg-indigo-950/80 border border-indigo-800/50 text-indigo-300 text-[10px] px-1.5 py-0.5 rounded">${g}</span>`).join(' ');
+                }
+
+                html += `
+                <div draggable="true" ondragstart="handleDragStart(event, '${b.id}')" ondragover="handleDragOver(event)" ondrop="handleDrop(event, '${b.id}')" 
+                     class="group relative bg-slate-800/80 border border-slate-700/70 hover:border-indigo-500/60 rounded-2xl overflow-hidden shadow-lg hover:shadow-indigo-500/10 transition-all duration-200 flex flex-col justify-between">
+                    
+                    <!-- Top Badge Bar -->
+                    <div class="absolute top-2 left-2 right-2 flex justify-between items-center z-10 pointer-events-none">
+                        <span class="bg-slate-900/90 backdrop-blur border border-slate-700 text-slate-200 text-xs font-black px-2 py-0.5 rounded-lg shadow">
+                            N# ${b.volume}
+                        </span>
+                        
+                        <!-- Toggle Collect Button -->
+                        <button onclick="toggleBookStatus('${b.id}', event)" class="pointer-events-auto p-1.5 rounded-lg backdrop-blur transition ${b.collected ? 'bg-emerald-600/90 text-white hover:bg-emerald-500' : 'bg-slate-900/80 text-slate-400 hover:text-white hover:bg-slate-800'}">
+                            <i class="fa-solid ${b.collected ? 'fa-check' : 'fa-plus'} text-xs"></i>
+                        </button>
+                    </div>
+
+                    <!-- Book Cover Image -->
+                    <div class="relative aspect-[2/3] w-full bg-slate-900 overflow-hidden cursor-pointer" onclick="openPreviewModal('${b.id}')">
+                        <img src="${cover}" alt="${b.title}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300 ${!b.collected ? 'grayscale brightness-75 opacity-75' : ''}" loading="lazy" onerror="this.src='https://placehold.co/300x450/1e293b/64748b?text=No+Cover'">
+                        
+                        <div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent opacity-80"></div>
+                        
+                        <!-- Quick View Overlay Button -->
+                        <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition bg-slate-950/40 backdrop-blur-xs">
+                            <span class="bg-indigo-600 text-white text-xs font-medium px-3 py-1.5 rounded-xl flex items-center space-x-1 shadow-lg">
+                                <i class="fa-solid fa-eye"></i> <span>ნახვა</span>
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Book Details Footer -->
+                    <div class="p-3.5 flex flex-col justify-between flex-1 bg-slate-800/90">
+                        <div>
+                            <h3 class="text-sm font-bold text-slate-100 line-clamp-1 select-text" title="${b.title}">${b.title}</h3>
+                            <p class="text-xs text-slate-400 line-clamp-1 mt-0.5 select-text">${b.author || 'უცნობი ავტორი'}</p>
+                        </div>
+
+                        ${genreBadges ? `<div class="flex flex-wrap gap-1 mt-2">${genreBadges}</div>` : ''}
+
+                        <div class="mt-3 pt-2 border-t border-slate-700/60 flex items-center justify-between">
+                            ${ratingBadge || `<span class="text-[11px] text-slate-500">${b.collected ? 'შეგროვებული' : 'სურვილებში'}</span>`}
+                            
+                            <div class="flex items-center space-x-1">
+                                <button onclick="openEditBookModal('${b.id}')" title="რედაქტირება" class="p-1 text-slate-400 hover:text-indigo-400 transition">
+                                    <i class="fa-solid fa-pen-to-square text-xs"></i>
+                                </button>
+                                <button onclick="deleteBook('${b.id}')" title="წაშლა" class="p-1 text-slate-400 hover:text-rose-400 transition">
+                                    <i class="fa-solid fa-trash-can text-xs"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+            });
+
+            html += `</div>`;
+            container.innerHTML = html;
+        }
+
+        function renderListView(container, filteredBooks) {
+            let html = `<div class="bg-slate-800/80 border border-slate-700 rounded-2xl overflow-hidden shadow-xl divide-y divide-slate-700/60">`;
+
+            filteredBooks.forEach(b => {
+                const cover = b.cover || `https://placehold.co/100x150/1e293b/64748b?text=N${b.volume}`;
+                
+                html += `
+                <div draggable="true" ondragstart="handleDragStart(event, '${b.id}')" ondragover="handleDragOver(event)" ondrop="handleDrop(event, '${b.id}')"
+                     class="p-3 sm:p-4 hover:bg-slate-700/40 transition flex items-center justify-between gap-4">
+                    
+                    <div class="flex items-center space-x-3 sm:space-x-4 min-w-0">
+                        <span class="w-8 h-8 rounded-lg bg-slate-900 border border-slate-700 flex items-center justify-center text-xs font-black text-slate-300 shrink-0">
+                            ${b.volume}
+                        </span>
+                        
+                        <img src="${cover}" alt="${b.title}" class="w-10 h-14 object-cover rounded border border-slate-700 shrink-0 ${!b.collected ? 'grayscale' : ''}">
+
+                        <div class="min-w-0">
+                            <h3 class="text-sm font-bold text-white line-clamp-1 select-text cursor-pointer hover:text-indigo-400" onclick="openPreviewModal('${b.id}')">${b.title}</h3>
+                            <p class="text-xs text-slate-400 select-text">${b.author || 'უცნობი'}</p>
+                            
+                            <div class="flex items-center space-x-2 mt-1">
+                                ${b.rating > 0 ? renderStarRatingSVG(b.rating, "w-3 h-3") : ''}
+                                ${Array.isArray(b.genres) ? b.genres.slice(0, 2).map(g => `<span class="text-[10px] text-indigo-300 bg-indigo-950 px-1.5 py-0.2 rounded border border-indigo-900">${g}</span>`).join('') : ''}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center space-x-3 shrink-0">
+                        <button onclick="toggleBookStatus('${b.id}', event)" class="px-3 py-1.5 rounded-xl text-xs font-medium transition flex items-center space-x-1.5 ${b.collected ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-800' : 'bg-slate-900 text-slate-400 border border-slate-700 hover:text-white'}">
+                            <i class="fa-solid ${b.collected ? 'fa-check' : 'fa-plus'}"></i>
+                            <span class="hidden sm:inline">${b.collected ? 'შეგროვებულია' : 'დამატება'}</span>
+                        </button>
+                        
+                        <button onclick="openPreviewModal('${b.id}')" title="ნახვა" class="p-2 text-slate-400 hover:text-indigo-400">
+                            <i class="fa-solid fa-eye text-sm"></i>
+                        </button>
+                        <button onclick="openEditBookModal('${b.id}')" title="რედაქტირება" class="p-2 text-slate-400 hover:text-indigo-400">
+                            <i class="fa-solid fa-pen-to-square text-sm"></i>
+                        </button>
+                        <button onclick="deleteBook('${b.id}')" title="წაშლა" class="p-2 text-slate-400 hover:text-rose-400">
+                            <i class="fa-solid fa-trash-can text-sm"></i>
+                        </button>
+                    </div>
+                </div>`;
+            });
+
+            html += `</div>`;
+            container.innerHTML = html;
+        }
+
+        // ----------------------------------------------------
+        // 8. STATS CALCULATOR
+        // ----------------------------------------------------
+        function updateStats() {
+            const total = books.length;
+            const collected = books.filter(b => b.collected).length;
+            const wishlist = total - collected;
+            const pct = total > 0 ? Math.round((collected / total) * 100) : 0;
+
+            document.getElementById('totalCount').innerText = total;
+            document.getElementById('collectedCount').innerText = collected;
+            document.getElementById('statCollectedNumber').innerText = collected;
+            document.getElementById('statWishlistNumber').innerText = wishlist;
+            document.getElementById('progressPercentage').innerText = `${pct}%`;
+            
+            const bar = document.getElementById('progressBar');
+            if (bar) bar.style.width = `${pct}%`;
+        }
+
+        // ----------------------------------------------------
+        // 9. DRAG AND DROP REORDERING
+        // ----------------------------------------------------
+        let draggedBookId = null;
+
+        function handleDragStart(e, id) {
+            draggedBookId = id;
+            e.dataTransfer.effectAllowed = 'move';
+            e.target.classList.add('drag-ghost');
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+        }
+
+        function handleDrop(e, targetId) {
+            e.preventDefault();
+            if (!draggedBookId || draggedBookId === targetId) return;
+
+            const fromIdx = books.findIndex(b => b.id === draggedBookId);
+            const toIdx = books.findIndex(b => b.id === targetId);
+
+            if (fromIdx !== -1 && toIdx !== -1) {
+                const [moved] = books.splice(fromIdx, 1);
+                books.splice(toIdx, 0, moved);
+                saveBooksData();
+                renderBooks();
+            }
+            draggedBookId = null;
+        }
+
+        // ----------------------------------------------------
+        // 10. BOOK ACTIONS (TOGGLE, ADD, EDIT, DELETE)
+        // ----------------------------------------------------
+        function toggleBookStatus(id, e) {
+            if (e) e.stopPropagation();
+            const book = books.find(b => b.id === id);
+            if (book) {
+                book.collected = !book.collected;
+                saveBooksData();
+                renderBooks();
+            }
+        }
+
+        function deleteBook(id) {
+            if (confirm("დარწმუნებული ხართ, რომ გსურთ წიგნის წაშლა?")) {
+                books = books.filter(b => b.id !== id);
+                saveBooksData();
+                renderBooks();
+            }
+        }
+
+        function openAddBookModal() {
+            document.getElementById('modalHeaderTitle').innerText = "ახალი წიგნის დამატება";
+            document.getElementById('editBookId').value = "";
+            document.getElementById('formVolume').value = (books.length + 1);
+            document.getElementById('formTitle').value = "";
+            document.getElementById('formAuthor').value = "";
+            document.getElementById('formCollected').value = "true";
+            document.getElementById('formRating').value = "0";
+            updateFormRatingPreview(0);
+            document.getElementById('formGenres').value = "";
+            document.getElementById('formDescription').value = "";
+            document.getElementById('formNotes').value = "";
+            document.getElementById('formCoverUrl').value = "";
+            document.getElementById('coverPreviewContainer').classList.add('hidden');
+
+            document.getElementById('bookModal').classList.remove('hidden');
+        }
+
+        function openEditBookModal(id) {
+            const book = books.find(b => b.id === id);
+            if (!book) return;
+
+            document.getElementById('modalHeaderTitle').innerText = "წიგნის რედაქტირება";
+            document.getElementById('editBookId').value = book.id;
+            document.getElementById('formVolume').value = book.volume;
+            document.getElementById('formTitle').value = book.title;
+            document.getElementById('formAuthor').value = book.author || "";
+            document.getElementById('formCollected').value = book.collected ? "true" : "false";
+            document.getElementById('formRating').value = book.rating || 0;
+            updateFormRatingPreview(book.rating || 0);
+            document.getElementById('formGenres').value = Array.isArray(book.genres) ? book.genres.join(', ') : "";
+            document.getElementById('formDescription').value = book.description || "";
+            document.getElementById('formNotes').value = book.notes || "";
+            document.getElementById('formCoverUrl').value = book.cover || "";
+
+            if (book.cover) {
+                document.getElementById('coverPreviewImg').src = book.cover;
+                document.getElementById('coverPreviewContainer').classList.remove('hidden');
+            } else {
+                document.getElementById('coverPreviewContainer').classList.add('hidden');
+            }
+
+            document.getElementById('bookModal').classList.remove('hidden');
+        }
+
+        function closeBookModal() {
+            document.getElementById('bookModal').classList.add('hidden');
+        }
+
+        function updateFormRatingPreview(val) {
+            document.getElementById('formRatingVal').innerText = `${parseFloat(val).toFixed(2).replace(/\.00$/, '.0')} ★`;
+        }
+
+        function setFormRatingVal(val) {
+            document.getElementById('formRating').value = val;
+            updateFormRatingPreview(val);
+        }
+
+        function addQuickGenre(genre) {
+            const input = document.getElementById('formGenres');
+            let existing = input.value.split(',').map(g => g.trim()).filter(Boolean);
+            if (!existing.includes(genre)) {
+                existing.push(genre);
+                input.value = existing.join(', ');
+            }
+        }
+
+        function handleBookFormSubmit(e) {
+            e.preventDefault();
+            const id = document.getElementById('editBookId').value;
+            const volume = parseInt(document.getElementById('formVolume').value) || 1;
+            const title = document.getElementById('formTitle').value.trim();
+            const author = document.getElementById('formAuthor').value.trim();
+            const collected = document.getElementById('formCollected').value === "true";
+            const rating = parseFloat(document.getElementById('formRating').value) || 0;
+            const genresStr = document.getElementById('formGenres').value;
+            const genres = genresStr.split(',').map(g => g.trim()).filter(Boolean);
+            const description = document.getElementById('formDescription').value.trim();
+            const notes = document.getElementById('formNotes').value.trim();
+            const cover = document.getElementById('formCoverUrl').value.trim();
+
+            if (id) {
+                // Edit
+                const book = books.find(b => b.id === id);
+                if (book) {
+                    book.volume = volume;
+                    book.title = title;
+                    book.author = author;
+                    book.collected = collected;
+                    book.rating = rating;
+                    book.genres = genres;
+                    book.description = description;
+                    book.notes = notes;
+                    book.cover = cover;
+                }
+            } else {
+                // Add New
+                const newBook = {
+                    id: "b_" + Date.now(),
+                    volume,
+                    title,
+                    author,
+                    collected,
+                    rating,
+                    genres,
+                    description,
+                    notes,
+                    cover
+                };
+                books.push(newBook);
+            }
+
+            saveBooksData();
+            renderBooks();
+            closeBookModal();
+        }
+
+        // ----------------------------------------------------
+        // 11. HTML5 CANVAS IMAGE COMPRESSION
+        // ----------------------------------------------------
+        function handleImageCompress(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    const maxW = 350;
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > maxW) {
+                        height = Math.round((height * maxW) / width);
+                        width = maxW;
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    const compressedBase64 = canvas.toDataURL('image/jpeg', 0.75);
+                    document.getElementById('formCoverUrl').value = compressedBase64;
+                    document.getElementById('coverPreviewImg').src = compressedBase64;
+                    document.getElementById('coverPreviewContainer').classList.remove('hidden');
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // ----------------------------------------------------
+        // 12. PREVIEW DETAILS MODAL (👁️)
+        // ----------------------------------------------------
+        function openPreviewModal(id) {
+            const book = books.find(b => b.id === id);
+            if (!book) return;
+
+            const cover = book.cover || `https://placehold.co/400x600/1e293b/64748b?text=Vol+${book.volume}`;
+            const ratingHtml = book.rating > 0 ? renderStarRatingSVG(book.rating, "w-5 h-5") : '<span class="text-xs text-slate-500">შეუფასებელი</span>';
+            const genresHtml = Array.isArray(book.genres) && book.genres.length > 0 
+                ? book.genres.map(g => `<span class="bg-indigo-950 text-indigo-300 border border-indigo-800 text-xs px-2.5 py-1 rounded-lg">${g}</span>`).join(' ')
+                : '';
+
+            const content = `
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Cover -->
+                <div class="md:col-span-1">
+                    <img src="${cover}" alt="${book.title}" class="w-full h-auto rounded-xl border border-slate-700 shadow-2xl object-cover">
+                    <div class="mt-4 text-center">
+                        <span class="inline-block px-3 py-1 rounded-full text-xs font-bold ${book.collected ? 'bg-emerald-950 text-emerald-300 border border-emerald-800' : 'bg-slate-800 text-slate-400'}">
+                            ${book.collected ? '🟢 შეგროვებულია' : '⚪ სურვილების სიაში'}
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Info -->
+                <div class="md:col-span-2 space-y-4">
+                    <div>
+                        <span class="text-xs font-bold text-indigo-400 uppercase tracking-wider">ტომი N# ${book.volume}</span>
+                        <h2 class="text-2xl font-extrabold text-white mt-1 select-text">${book.title}</h2>
+                        <p class="text-sm text-slate-400 select-text">${book.author || 'უცნობი ავტორი'}</p>
+                    </div>
+
+                    <!-- Rating & Genres -->
+                    <div class="flex flex-wrap items-center gap-3 py-2 border-y border-slate-800">
+                        ${ratingHtml}
+                        <div class="flex flex-wrap gap-1">${genresHtml}</div>
+                    </div>
+
+                    <!-- Description -->
+                    <div>
+                        <h4 class="text-xs font-bold text-slate-400 uppercase mb-1">წიგნის ანოტაცია / აღწერა</h4>
+                        <p class="text-sm text-slate-300 leading-relaxed bg-slate-950/50 p-3 rounded-xl border border-slate-800/80 select-text">
+                            ${book.description || 'აღწერა არ არის მითითებული.'}
+                        </p>
+                    </div>
+
+                    <!-- Personal Review -->
+                    <div>
+                        <h4 class="text-xs font-bold text-slate-400 uppercase mb-1">ჩემი შეფასება & რევიუ</h4>
+                        <p class="text-sm text-amber-200/90 leading-relaxed bg-amber-950/20 p-3 rounded-xl border border-amber-900/30 select-text">
+                            ${book.notes || 'პირადი შენიშვნა არ არის დამატებული.'}
+                        </p>
+                    </div>
+
+                    <div class="pt-2 flex justify-end space-x-2">
+                        <button onclick="closePreviewModal(); openEditBookModal('${book.id}')" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-medium transition">
+                            <i class="fa-solid fa-pen-to-square mr-1"></i> რედაქტირება
+                        </button>
+                    </div>
+                </div>
+            </div>`;
+
+            document.getElementById('previewModalContent').innerHTML = content;
+            document.getElementById('previewModal').classList.remove('hidden');
+        }
+
+        function closePreviewModal() {
+            document.getElementById('previewModal').classList.add('hidden');
+        }
+
+        // ----------------------------------------------------
+        // 13. BACKUP (JSON EXPORT / IMPORT)
+        // ----------------------------------------------------
+        function exportJSONBackup() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(books, null, 2));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `biblioteka_backup_${new Date().toISOString().slice(0,10)}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        }
+
+        function importJSONBackup(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (Array.isArray(imported)) {
+                        if (confirm(`ნამდვილად გსურთ ${imported.length} წიგნის იმპორტირება? არსებული ბაზა ჩანაცვლდება.`)) {
+                            books = imported;
+                            saveBooksData();
+                            renderBooks();
+                            alert("მონაცემები წარმატებით აღდგა!");
+                        }
+                    } else {
+                        alert("არასწორი JSON ფორმატი!");
+                    }
+                } catch(err) {
+                    alert("ფაილის წაკითხვის შეცდომა!");
+                }
+            };
+            reader.readAsText(file);
+        }
+    </script>
 </body>
 </html>
